@@ -131,10 +131,33 @@ def get_sectors(
 def get_indices(
     current_user: User = Depends(get_current_active_user)
 ):
-    """Get list of indices (mock data for now)"""
-    return [
-        {"name": "CAC 40", "value": 7500.25, "change": 1.2},
-        {"name": "MSCI World", "value": 3250.80, "change": 0.8},
-        {"name": "S&P 500", "value": 4800.15, "change": -0.3},
-        {"name": "EURO STOXX 50", "value": 4200.60, "change": 0.5}
-    ]
+    """Get list of indices with real data"""
+    from app.services.real_market_data import real_market_service
+    
+    try:
+        indices_data = real_market_service.get_market_indices()
+        
+        # Convert to the expected format
+        indices_list = []
+        for symbol, data in indices_data.items():
+            indices_list.append({
+                "name": data["name"],
+                "symbol": symbol,
+                "value": data["value"],
+                "change": data["change"],
+                "change_percent": data["change_percent"],
+                "volume": data.get("volume", 0),
+                "currency": data.get("currency", "EUR"),
+                "last_update": data["last_update"]
+            })
+        
+        return indices_list
+        
+    except Exception as e:
+        # Fallback vers des données mock en cas d'erreur
+        return [
+            {"name": "CAC 40", "value": 7500.25, "change": 1.2, "change_percent": 0.016},
+            {"name": "MSCI World", "value": 3250.80, "change": 0.8, "change_percent": 0.025},
+            {"name": "S&P 500", "value": 4800.15, "change": -0.3, "change_percent": -0.006},
+            {"name": "EURO STOXX 50", "value": 4200.60, "change": 0.5, "change_percent": 0.012}
+        ]

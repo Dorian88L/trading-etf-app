@@ -4,12 +4,12 @@ import {
   HomeIcon,
   ChartBarIcon,
   CurrencyDollarIcon,
-  TrendingUpIcon,
+  ArrowTrendingUpIcon,
   BellIcon,
   CogIcon,
-  MenuIcon,
-  XIcon,
-  LogoutIcon
+  Bars3Icon,
+  XMarkIcon,
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import { useAppDispatch } from '../hooks/redux';
 import { logoutUser } from '../store/slices/authSlice';
@@ -17,7 +17,7 @@ import { logoutUser } from '../store/slices/authSlice';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'ETFs', href: '/etfs', icon: ChartBarIcon },
-  { name: 'Signals', href: '/signals', icon: TrendingUpIcon },
+  { name: 'Signals', href: '/signals', icon: ArrowTrendingUpIcon },
   { name: 'Portfolio', href: '/portfolio', icon: CurrencyDollarIcon },
   { name: 'Alerts', href: '/alerts', icon: BellIcon },
   { name: 'Settings', href: '/settings', icon: CogIcon },
@@ -44,7 +44,7 @@ const Layout: React.FC = () => {
               className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
               onClick={() => setSidebarOpen(false)}
             >
-              <XIcon className="h-6 w-6 text-white" />
+              <XMarkIcon className="h-6 w-6 text-white" />
             </button>
           </div>
           <div className="h-0 flex-1 overflow-y-auto pt-5 pb-4">
@@ -81,7 +81,7 @@ const Layout: React.FC = () => {
               onClick={handleLogout}
               className="group flex w-full items-center px-2 py-2 text-base font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900"
             >
-              <LogoutIcon className="mr-4 h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500" />
+              <ArrowRightOnRectangleIcon className="mr-4 h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500" />
               Logout
             </button>
           </div>
@@ -124,7 +124,7 @@ const Layout: React.FC = () => {
               onClick={handleLogout}
               className="group flex w-full items-center px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900"
             >
-              <LogoutIcon className="mr-3 h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500" />
+              <ArrowRightOnRectangleIcon className="mr-3 h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500" />
               Logout
             </button>
           </div>
@@ -141,7 +141,7 @@ const Layout: React.FC = () => {
               className="border-r border-gray-200 px-4 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 lg:hidden"
               onClick={() => setSidebarOpen(true)}
             >
-              <MenuIcon className="h-6 w-6" />
+              <Bars3Icon className="h-6 w-6" />
             </button>
             <h1 className="text-lg font-semibold text-gray-900">TradingETF</h1>
             <div className="w-10" /> {/* Spacer */}

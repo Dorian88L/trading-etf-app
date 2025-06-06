@@ -1,4 +1,5 @@
 import pandas as pd
+import pandas_ta as ta
 import numpy as np
 from typing import Dict, List, Optional
 from decimal import Decimal

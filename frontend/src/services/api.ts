@@ -1,4 +1,4 @@
-import axios, { AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosError } from 'axios';
 import { 
   User, 
   UserPreferences, 

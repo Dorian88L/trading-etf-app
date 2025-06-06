@@ -80,5 +80,5 @@ watchfiles==1.0.5
 wcwidth==0.2.13
 websockets==15.0.1
 yfinance==0.2.37
-ta-lib==0.4.32
+pandas-ta==0.3.14b0
 scikit-learn==1.6.0
