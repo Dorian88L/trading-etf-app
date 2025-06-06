@@ -1,0 +1,72 @@
+{
+  "short_name": "TradingETF",
+  "name": "Trading ETF - AI-Powered ETF Trading Assistant",
+  "description": "Application de trading court terme d'ETF avec signaux automatisés et analyse technique avancée",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2563eb",
+  "background_color": "#f9fafb",
+  "categories": ["finance", "business", "productivity"],
+  "lang": "fr",
+  "scope": "/",
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Vue d'ensemble du portefeuille et des signaux",
+      "url": "/dashboard",
+      "icons": [{ "src": "logo192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Signaux",
+      "short_name": "Signaux",
+      "description": "Signaux de trading en temps réel",
+      "url": "/signals",
+      "icons": [{ "src": "logo192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Portfolio",
+      "short_name": "Portfolio",
+      "description": "Gestion du portefeuille",
+      "url": "/portfolio",
+      "icons": [{ "src": "logo192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "ETFs",
+      "short_name": "ETFs",
+      "description": "Analyse des ETF",
+      "url": "/etfs",
+      "icons": [{ "src": "logo192.png", "sizes": "192x192" }]
+    }
+  ]
+}
