@@ -69,7 +69,7 @@ Application web progressive (PWA) d'analyse et de trading court terme d'ETF avec
 
 ### 1. Cloner le repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/Dorian88L/trading-etf-app.git
 cd trading-etf-app
 ```
 
@@ -259,7 +259,7 @@ Cette application est destinée à des fins éducatives et d'information uniquem
 Pour toute question ou support :
 - 📧 Email : support@tradingetf.com
 - 📖 Documentation : [https://docs.tradingetf.com](https://docs.tradingetf.com)
-- 🐛 Issues : [GitHub Issues](https://github.com/tradingetf/issues)
+- 🐛 Issues : [GitHub Issues](https://github.com/Dorian88L/trading-etf-app/issues)
 
 ---
 
