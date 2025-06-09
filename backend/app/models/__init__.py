@@ -1,4 +1,5 @@
-from .user import User, UserPreferences
+from .user import User
+from .user_preferences import UserPreferences, UserWatchlist, UserAlert, UserSignalSubscription
 from .etf import ETF, MarketData, TechnicalIndicators
 from .signal import Signal
 from .portfolio import Portfolio, Position, Transaction
@@ -8,6 +9,9 @@ from .watchlist import Watchlist
 __all__ = [
     "User",
     "UserPreferences", 
+    "UserWatchlist",
+    "UserAlert",
+    "UserSignalSubscription",
     "ETF",
     "MarketData",
     "TechnicalIndicators",

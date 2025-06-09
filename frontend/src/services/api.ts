@@ -1,4 +1,6 @@
 import axios, { AxiosError } from 'axios';
+import { cache, CacheKeys } from '../utils/cache';
+import { errorHandler } from '../utils/errorHandler';
 import { 
   User, 
   UserPreferences, 
@@ -59,12 +61,16 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor for token refresh
+// Response interceptor for token refresh and error handling
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as any;
     
+    // Enregistrer l'erreur dans notre gestionnaire
+    errorHandler.handleApiError(error);
+    
+    // Gestion du refresh token pour les erreurs 401
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
@@ -82,8 +88,14 @@ api.interceptors.response.use(
           return api(originalRequest);
         }
       } catch (refreshError) {
+        // Enregistrer aussi l'erreur de refresh
+        errorHandler.handleApiError(refreshError);
         removeAuthToken();
-        window.location.href = '/login';
+        
+        // Redirection plus douce sans rechargement complet
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     
@@ -156,6 +168,25 @@ export const marketAPI = {
     return response.data;
   },
   
+  getRealETFs: async (symbols?: string, useCache: boolean = true): Promise<any> => {
+    const cacheKey = symbols ? `${CacheKeys.REAL_ETFS}-${symbols}` : CacheKeys.REAL_ETFS;
+    
+    // Vérifier le cache d'abord
+    if (useCache) {
+      const cachedData = cache.get(cacheKey);
+      if (cachedData) {
+        return cachedData;
+      }
+    }
+    
+    const response = await api.get('/real-market/real-etfs', { params: symbols ? { symbols } : {} });
+    
+    // Mettre en cache pour 30 secondes
+    cache.set(cacheKey, response.data, 30);
+    
+    return response.data;
+  },
+  
   getETF: async (isin: string): Promise<ETF> => {
     const response = await api.get(`/market/etf/${isin}`);
     return response.data;
@@ -186,9 +217,37 @@ export const marketAPI = {
     const response = await api.get('/market/indices');
     return response.data;
   },
+
+  // Real Market Data API
+  getRealMarketData: async (symbol: string, period: string = '1mo'): Promise<any> => {
+    const response = await api.get(`/real-market/real-market-data/${symbol}`, { 
+      params: { period } 
+    });
+    return response.data;
+  },
+
+  getAvailableETFs: async (): Promise<any> => {
+    const response = await api.get('/real-market/available-etfs');
+    return response.data;
+  },
+
+  getMarketStatus: async (): Promise<any> => {
+    const response = await api.get('/real-market/market-status');
+    return response.data;
+  },
+
+  getEnhancedIndices: async (): Promise<any> => {
+    const response = await api.get('/real-market/enhanced-indices');
+    return response.data;
+  },
 };
 
 export const signalsAPI = {
+  getSignals: async (filters?: SignalFilters & PaginationParams): Promise<any> => {
+    const response = await api.get('/signals', { params: filters });
+    return response.data;
+  },
+  
   getActiveSignals: async (filters?: SignalFilters & PaginationParams): Promise<Signal[]> => {
     const response = await api.get('/signals/active', { params: filters });
     return response.data;
@@ -215,9 +274,55 @@ export const signalsAPI = {
     const response = await api.get('/signals/top-performers', { params });
     return response.data;
   },
+
+  // Advanced Signals API
+  getAdvancedSignals: async (params?: {
+    min_confidence?: number;
+    signal_types?: string;
+    max_risk_score?: number;
+    sectors?: string;
+    limit?: number;
+  }): Promise<any> => {
+    const response = await api.get('/advanced-signals/signals/advanced', { params });
+    return response.data;
+  },
+
+  getWatchlistSignals: async (params?: {
+    min_confidence?: number;
+  }): Promise<any> => {
+    const response = await api.get('/advanced-signals/signals/watchlist', { params });
+    return response.data;
+  },
+
+  getSignalStatistics: async (params?: {
+    days_back?: number;
+  }): Promise<any> => {
+    const response = await api.get('/advanced-signals/signals/statistics', { params });
+    return response.data;
+  },
 };
 
 export const portfolioAPI = {
+  getPortfolios: async (): Promise<any> => {
+    const response = await api.get('/portfolio');
+    return response.data;
+  },
+  
+  getPortfolioPositions: async (portfolioId: string): Promise<any> => {
+    const response = await api.get(`/portfolio/${portfolioId}/positions`);
+    return response.data;
+  },
+  
+  getPortfolioTransactions: async (portfolioId: string): Promise<any> => {
+    const response = await api.get(`/portfolio/${portfolioId}/transactions`);
+    return response.data;
+  },
+  
+  getPortfolioSummary: async (portfolioId: string): Promise<any> => {
+    const response = await api.get(`/portfolio/${portfolioId}/summary`);
+    return response.data;
+  },
+  
   getPositions: async (): Promise<Position[]> => {
     const response = await api.get('/portfolio/positions');
     return response.data;
@@ -240,11 +345,6 @@ export const portfolioAPI = {
     return response.data;
   },
   
-  getPortfolios: async (): Promise<Portfolio[]> => {
-    const response = await api.get('/portfolio/portfolios');
-    return response.data;
-  },
-  
   createPortfolio: async (name: string): Promise<Portfolio> => {
     const response = await api.post('/portfolio/portfolios', { name });
     return response.data;
@@ -254,6 +354,62 @@ export const portfolioAPI = {
     const response = await api.get('/portfolio/transactions', { params });
     return response.data;
   },
+
+  // Portfolio Management API
+  getPortfolioManagement: {
+    getPortfolios: async (): Promise<any> => {
+      const response = await api.get('/portfolio-management/portfolios');
+      return response.data;
+    },
+    
+    getPortfolioDetails: async (portfolioId: string): Promise<any> => {
+      const response = await api.get(`/portfolio-management/portfolios/${portfolioId}`);
+      return response.data;
+    },
+    
+    getPortfolioTransactions: async (portfolioId: string, params?: { limit?: number; offset?: number }): Promise<any> => {
+      const response = await api.get(`/portfolio-management/portfolios/${portfolioId}/transactions`, { params });
+      return response.data;
+    },
+    
+    getPortfolioPerformance: async (portfolioId: string, period: string = '1M'): Promise<any> => {
+      const response = await api.get(`/portfolio-management/portfolios/${portfolioId}/performance`, { 
+        params: { period } 
+      });
+      return response.data;
+    },
+    
+    createPortfolio: async (name: string, description?: string, isDefault?: boolean): Promise<any> => {
+      const response = await api.post('/portfolio-management/portfolios', { 
+        name, 
+        description, 
+        is_default: isDefault 
+      });
+      return response.data;
+    },
+    
+    addPosition: async (portfolioId: string, position: {
+      etf_isin: string;
+      etf_symbol: string;
+      quantity: number;
+      price: number;
+      fees?: number;
+      notes?: string;
+    }): Promise<any> => {
+      const response = await api.post(`/portfolio-management/portfolios/${portfolioId}/positions`, position);
+      return response.data;
+    },
+    
+    sellPosition: async (portfolioId: string, positionId: string, sale: {
+      quantity: number;
+      price: number;
+      fees?: number;
+      notes?: string;
+    }): Promise<any> => {
+      const response = await api.post(`/portfolio-management/portfolios/${portfolioId}/positions/${positionId}/sell`, sale);
+      return response.data;
+    }
+  }
 };
 
 export const alertsAPI = {
@@ -278,11 +434,11 @@ export const alertsAPI = {
   },
   
   markAsRead: async (alertId: string): Promise<void> => {
-    await api.put(`/alerts/${alertId}/read`);
+    await api.patch(`/alerts/${alertId}/read`);
   },
   
   markAllAsRead: async (): Promise<void> => {
-    await api.put('/alerts/mark-all-read');
+    await api.patch('/alerts/mark-all-read');
   },
   
   deleteAlert: async (alertId: string): Promise<void> => {
@@ -293,6 +449,92 @@ export const alertsAPI = {
     const response = await api.get('/alerts/unread-count');
     return response.data;
   },
+
+  // Price Alerts API
+  getPriceAlerts: async (): Promise<any[]> => {
+    const response = await api.get('/alerts/price-alerts');
+    return response.data;
+  },
+
+  createPriceAlert: async (alert: {
+    etf_symbol: string;
+    target_price: number;
+    alert_type: 'above' | 'below';
+    message?: string;
+    is_active: boolean;
+  }): Promise<any> => {
+    const response = await api.post('/alerts/price-alerts', alert);
+    return response.data;
+  },
+
+  updatePriceAlert: async (alertId: string, update: {
+    target_price?: number;
+    alert_type?: 'above' | 'below';
+    message?: string;
+    is_active?: boolean;
+  }): Promise<any> => {
+    const response = await api.patch(`/alerts/price-alerts/${alertId}`, update);
+    return response.data;
+  },
+
+  deletePriceAlert: async (alertId: string): Promise<void> => {
+    await api.delete(`/alerts/price-alerts/${alertId}`);
+  },
+
+  getActivePriceAlerts: async (): Promise<any[]> => {
+    const response = await api.get('/alerts/price-alerts/active');
+    return response.data;
+  },
+};
+
+// Real-time Market Data API
+export const realtimeMarketAPI = {
+  getRealtimeQuote: async (symbol: string): Promise<any> => {
+    const response = await api.get(`/realtime-market/realtime/${symbol}`);
+    return response.data;
+  },
+
+  getMultipleQuotes: async (symbols: string[]): Promise<any> => {
+    const symbolsParam = symbols.join(',');
+    const response = await api.get(`/realtime-market/realtime/multiple?symbols=${symbolsParam}`);
+    return response.data;
+  },
+
+  getIntradayData: async (symbol: string, hours: number = 24): Promise<any> => {
+    const response = await api.get(`/realtime-market/intraday/${symbol}?hours=${hours}`);
+    return response.data;
+  },
+
+  getMarketOverview: async (): Promise<any> => {
+    const response = await api.get('/realtime-market/market-overview');
+    return response.data;
+  },
+
+  getWatchlistData: async (): Promise<any> => {
+    const response = await api.get('/realtime-market/watchlist');
+    return response.data;
+  },
+
+  getMarketStatus: async (): Promise<any> => {
+    const response = await api.get('/realtime-market/market-status');
+    return response.data;
+  },
+
+  startDataCollection: async (): Promise<any> => {
+    const response = await api.post('/realtime-market/data-collection/start');
+    return response.data;
+  },
+
+  getRealtimeStats: async (): Promise<any> => {
+    const response = await api.get('/realtime-market/stats');
+    return response.data;
+  },
+
+  // WebSocket URL helper
+  getWebSocketUrl: (): string => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/api/v1/realtime-market/ws/market-data`;
+  }
 };
 
 // Export utilities

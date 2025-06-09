@@ -82,3 +82,5 @@ websockets==15.0.1
 yfinance==0.2.37
 pandas-ta==0.3.14b0
 scikit-learn==1.6.0
+pywebpush==1.14.1
+aiohttp==3.10.11

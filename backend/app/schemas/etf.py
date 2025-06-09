@@ -61,3 +61,26 @@ class TechnicalIndicatorsBase(BaseModel):
 class TechnicalIndicatorsResponse(TechnicalIndicatorsBase):
     class Config:
         from_attributes = True
+
+
+class ETFScoreResponse(BaseModel):
+    etf_isin: str
+    final_score: float
+    technical_score: float
+    fundamental_score: float
+    risk_score: float
+    momentum_score: float
+    timestamp: datetime
+    rating: str
+    confidence: float
+    
+    class Config:
+        from_attributes = True
+
+
+class ETFRankingResponse(ETFScoreResponse):
+    rank: Optional[int] = None
+    percentile: Optional[float] = None
+    
+    class Config:
+        from_attributes = True

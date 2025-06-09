@@ -9,7 +9,8 @@ from app.celery_app import celery_app
 from app.core.config import settings
 from app.models.etf import ETF, MarketData, TechnicalIndicators
 from app.models.signal import Signal
-from app.services.market_data import MarketDataProvider, get_symbol_from_isin
+from app.services.market_data import get_symbol_from_isin
+import yfinance as yf
 from app.services.technical_analysis import TechnicalAnalyzer, SignalGenerator
 
 # Database setup for Celery tasks
@@ -27,8 +28,6 @@ def collect_market_data(self):
     """Collect market data for all ETFs"""
     try:
         db = get_db_session()
-        provider = MarketDataProvider()
-        
         # Get all ETFs
         etfs = db.query(ETF).all()
         
@@ -38,10 +37,23 @@ def collect_market_data(self):
                 if not symbol:
                     continue
                 
-                # Get market data
-                data = await provider.get_etf_data(symbol)
-                if not data:
+                # Get market data synchronously using yfinance
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(period="1d")
+                
+                if hist.empty:
                     continue
+                    
+                latest = hist.iloc[-1]
+                data = {
+                    "symbol": symbol,
+                    "timestamp": datetime.utcnow(),
+                    "open": float(latest["Open"]),
+                    "high": float(latest["High"]),
+                    "low": float(latest["Low"]),
+                    "close": float(latest["Close"]),
+                    "volume": int(latest["Volume"]),
+                }
                 
                 # Save to database
                 market_data = MarketData(
@@ -62,7 +74,6 @@ def collect_market_data(self):
                 print(f"Error processing ETF {etf.isin}: {e}")
                 continue
         
-        await provider.close()
         db.close()
         
         return f"Collected market data for {len(etfs)} ETFs"

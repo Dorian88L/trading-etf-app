@@ -1,9 +1,11 @@
 import pandas as pd
-import pandas_ta as ta
 import numpy as np
 from typing import Dict, List, Optional
 from decimal import Decimal
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TechnicalAnalyzer:
@@ -66,6 +68,60 @@ class TechnicalAnalyzer:
         return true_range.rolling(window=window).mean()
     
     @staticmethod
+    def calculate_williams_r(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
+        """Calculate Williams %R"""
+        highest_high = high.rolling(window=period).max()
+        lowest_low = low.rolling(window=period).min()
+        williams_r = -100 * (highest_high - close) / (highest_high - lowest_low)
+        return williams_r
+    
+    @staticmethod
+    def calculate_stochastic(high: pd.Series, low: pd.Series, close: pd.Series, k_period: int = 14, d_period: int = 3) -> Dict[str, pd.Series]:
+        """Calculate Stochastic Oscillator"""
+        lowest_low = low.rolling(window=k_period).min()
+        highest_high = high.rolling(window=k_period).max()
+        
+        k_percent = 100 * (close - lowest_low) / (highest_high - lowest_low)
+        d_percent = k_percent.rolling(window=d_period).mean()
+        
+        return {
+            'stoch_k': k_percent,
+            'stoch_d': d_percent
+        }
+    
+    @staticmethod
+    def calculate_rate_of_change(close: pd.Series, period: int = 10) -> pd.Series:
+        """Calculate Rate of Change (Momentum)"""
+        return ((close / close.shift(period)) - 1) * 100
+    
+    @staticmethod
+    def calculate_adx(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
+        """Calculate Average Directional Index (ADX)"""
+        # Calculate True Range and Directional Movement
+        tr = TechnicalAnalyzer.calculate_atr(high, low, close, 1) * period
+        
+        dm_plus = np.where((high.diff() > low.diff().abs()) & (high.diff() > 0), high.diff(), 0)
+        dm_minus = np.where((low.diff().abs() > high.diff()) & (low.diff() < 0), low.diff().abs(), 0)
+        
+        dm_plus_series = pd.Series(dm_plus, index=high.index)
+        dm_minus_series = pd.Series(dm_minus, index=low.index)
+        
+        # Calculate smoothed values
+        tr_smooth = tr.rolling(window=period).mean()
+        dm_plus_smooth = dm_plus_series.rolling(window=period).mean()
+        dm_minus_smooth = dm_minus_series.rolling(window=period).mean()
+        
+        # Calculate DI+ and DI-
+        di_plus = 100 * dm_plus_smooth / tr_smooth
+        di_minus = 100 * dm_minus_smooth / tr_smooth
+        
+        # Calculate DX and ADX
+        dx = 100 * abs(di_plus - di_minus) / (di_plus + di_minus)
+        adx = dx.rolling(window=period).mean()
+        
+        return adx
+    
+    @staticmethod
     def calculate_obv(close: pd.Series, volume: pd.Series) -> pd.Series:
         """Calculate On Balance Volume"""
         obv = pd.Series(index=close.index, dtype=float)
@@ -117,6 +173,12 @@ class TechnicalAnalyzer:
         obv = self.calculate_obv(close, volume)
         vwap = self.calculate_vwap(high, low, close, volume)
         
+        # Additional indicators
+        williams_r = self.calculate_williams_r(high, low, close)
+        stoch_data = self.calculate_stochastic(high, low, close)
+        roc = self.calculate_rate_of_change(close)
+        adx = self.calculate_adx(high, low, close)
+        
         # Get latest values
         latest_idx = market_data.index[-1]
         
@@ -137,6 +199,11 @@ class TechnicalAnalyzer:
             'atr': float(atr.iloc[-1]) if not pd.isna(atr.iloc[-1]) else None,
             'obv': int(obv.iloc[-1]) if not pd.isna(obv.iloc[-1]) else None,
             'vwap': float(vwap.iloc[-1]) if not pd.isna(vwap.iloc[-1]) else None,
+            'williams_r': float(williams_r.iloc[-1]) if not pd.isna(williams_r.iloc[-1]) else None,
+            'stoch_k': float(stoch_data['stoch_k'].iloc[-1]) if not pd.isna(stoch_data['stoch_k'].iloc[-1]) else None,
+            'stoch_d': float(stoch_data['stoch_d'].iloc[-1]) if not pd.isna(stoch_data['stoch_d'].iloc[-1]) else None,
+            'roc': float(roc.iloc[-1]) if not pd.isna(roc.iloc[-1]) else None,
+            'adx': float(adx.iloc[-1]) if not pd.isna(adx.iloc[-1]) else None,
         }
 
 
@@ -180,7 +247,12 @@ class SignalGenerator:
             'risk_score': round(risk_score, 2),
             'price_target': price_target,
             'stop_loss': stop_loss,
-            'current_price': float(current_price)
+            'current_price': float(current_price),
+            'williams_r': technical_data.get('williams_r'),
+            'stoch_k': technical_data.get('stoch_k'),
+            'stoch_d': technical_data.get('stoch_d'),
+            'roc': technical_data.get('roc'),
+            'adx': technical_data.get('adx')
         }
     
     def _calculate_technical_score(self, tech_data: Dict, current_price: float) -> float:
@@ -225,6 +297,38 @@ class SignalGenerator:
             elif current_price > tech_data['bb_upper']:
                 score -= 10  # Price above upper band - overbought
         
+        # Williams %R analysis
+        if tech_data.get('williams_r'):
+            williams_r = tech_data['williams_r']
+            if williams_r < -80:
+                score += 8  # Oversold
+            elif williams_r > -20:
+                score -= 8  # Overbought
+        
+        # Stochastic analysis
+        if tech_data.get('stoch_k'):
+            stoch_k = tech_data['stoch_k']
+            if stoch_k < 20:
+                score += 8  # Oversold
+            elif stoch_k > 80:
+                score -= 8  # Overbought
+        
+        # ADX trend strength
+        if tech_data.get('adx'):
+            adx = tech_data['adx']
+            if adx > 25:  # Strong trend
+                score += 5
+            elif adx < 20:  # Weak trend
+                score -= 3
+        
+        # Rate of Change momentum
+        if tech_data.get('roc'):
+            roc = tech_data['roc']
+            if roc > 5:
+                score += 8  # Strong positive momentum
+            elif roc < -5:
+                score -= 8  # Strong negative momentum
+        
         return max(0, min(100, score))
     
     def _calculate_fundamental_score(self, etf_isin: str) -> float:
@@ -251,6 +355,16 @@ class SignalGenerator:
             elif volatility_ratio > 0.05:
                 score -= 20  # High volatility - higher risk
         
+        # Trend consistency analysis
+        if tech_data.get('adx'):
+            adx = tech_data['adx']
+            if adx > 30:  # Very strong trend = higher predictability
+                score += 15
+            elif adx > 25:  # Strong trend
+                score += 10
+            elif adx < 15:  # No clear trend = higher risk
+                score -= 10
+        
         # Volume consistency
         if len(market_data) > 10:
             volume_cv = market_data['volume'].tail(10).std() / market_data['volume'].tail(10).mean()
@@ -263,9 +377,45 @@ class SignalGenerator:
     
     def _determine_signal_type(self, tech_data: Dict, confidence: float) -> str:
         """Determine signal type based on analysis"""
-        if confidence >= 75:
+        # Enhanced signal determination with multiple indicators
+        buy_signals = 0
+        sell_signals = 0
+        
+        # RSI signals
+        if tech_data.get('rsi'):
+            rsi = tech_data['rsi']
+            if rsi < 30:
+                buy_signals += 2
+            elif rsi > 70:
+                sell_signals += 2
+        
+        # MACD signals
+        if tech_data.get('macd') and tech_data.get('macd_signal'):
+            if tech_data['macd'] > tech_data['macd_signal']:
+                buy_signals += 1
+            else:
+                sell_signals += 1
+        
+        # Williams %R signals
+        if tech_data.get('williams_r'):
+            williams_r = tech_data['williams_r']
+            if williams_r < -80:
+                buy_signals += 1
+            elif williams_r > -20:
+                sell_signals += 1
+        
+        # Stochastic signals
+        if tech_data.get('stoch_k'):
+            stoch_k = tech_data['stoch_k']
+            if stoch_k < 20:
+                buy_signals += 1
+            elif stoch_k > 80:
+                sell_signals += 1
+        
+        # Final determination based on confidence and signal count
+        if confidence >= 75 and buy_signals >= sell_signals:
             return "BUY"
-        elif confidence <= 25:
+        elif confidence <= 25 or sell_signals > buy_signals + 1:
             return "SELL"
         elif confidence >= 60:
             return "HOLD"

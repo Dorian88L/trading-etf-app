@@ -15,6 +15,7 @@ from app.schemas.portfolio import (
     TransactionResponse, 
     TransactionCreate
 )
+from app.services.portfolio_service import get_portfolio_calculation_service
 
 router = APIRouter()
 
@@ -100,17 +101,38 @@ def create_transaction(
 @router.get("/performance")
 def get_portfolio_performance(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    portfolio_service = Depends(get_portfolio_calculation_service)
 ):
-    """Get portfolio performance (mock data for now)"""
+    """Get real portfolio performance based on actual positions and market data"""
+    # Get user's default portfolio (first one)
+    portfolio = db.query(Portfolio).filter(Portfolio.user_id == current_user.id).first()
+    
+    if not portfolio:
+        return {
+            "total_value": 0.0,
+            "total_gain_loss": 0.0,
+            "total_gain_loss_percent": 0.0,
+            "day_change": 0.0,
+            "day_change_percent": 0.0,
+            "positions_count": 0,
+            "cash_balance": 0.0,
+            "positions_detail": []
+        }
+    
+    # Calculate real portfolio values
+    portfolio_calc = portfolio_service.calculate_portfolio_value(db, str(portfolio.id))
+    today_pnl = portfolio_service.calculate_today_pnl(db, str(portfolio.id))
+    
     return {
-        "total_value": 150000.00,
-        "total_gain_loss": 12500.00,
-        "total_gain_loss_percent": 9.1,
-        "day_change": 850.00,
-        "day_change_percent": 0.57,
-        "positions_count": 8,
-        "cash_balance": 25000.00
+        "total_value": portfolio_calc.get('total_value', 0.0),
+        "total_gain_loss": portfolio_calc.get('total_pnl', 0.0),
+        "total_gain_loss_percent": portfolio_calc.get('total_pnl_percent', 0.0),
+        "day_change": today_pnl.get('today_pnl', 0.0),
+        "day_change_percent": today_pnl.get('today_pnl_percent', 0.0),
+        "positions_count": portfolio_calc.get('positions_count', 0),
+        "cash_balance": 0.0,  # TODO: Implement cash balance tracking
+        "positions_detail": portfolio_calc.get('positions_detail', [])
     }
 
 

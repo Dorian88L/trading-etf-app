@@ -10,6 +10,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from app.core.cache import cache, CacheManager, cache_response
 
 logger = logging.getLogger(__name__)
 
@@ -43,55 +44,63 @@ class RealMarketDataPoint:
 class RealMarketDataService:
     """Service de collecte de données de marché réelles"""
     
-    # ETFs européens populaires avec leurs symboles Yahoo Finance
+    # ETFs européens populaires avec leurs symboles Yahoo Finance (vérifiés)
     EUROPEAN_ETFS = {
-        'LYX0CD.PA': {
-            'isin': 'FR0010296061',
-            'name': 'Lyxor CAC 40 UCITS ETF',
-            'sector': 'Large Cap France',
-            'exchange': 'Euronext Paris'
-        },
-        'SX5T.DE': {
-            'isin': 'LU0290358497', 
-            'name': 'Xtrackers EURO STOXX 50 UCITS ETF',
-            'sector': 'Europe Large Cap',
-            'exchange': 'XETRA'
-        },
-        'EUNL.DE': {
-            'isin': 'IE00B4L5Y983',
-            'name': 'iShares Core MSCI World UCITS ETF',
-            'sector': 'Global Developed',
-            'exchange': 'XETRA'
-        },
-        'IUSA.AS': {
-            'isin': 'IE00B4L5YC18',
-            'name': 'iShares Core S&P 500 UCITS ETF',
-            'sector': 'US Large Cap',
-            'exchange': 'Euronext Amsterdam'
-        },
         'IWDA.AS': {
             'isin': 'IE00B4L5Y983',
             'name': 'iShares Core MSCI World UCITS ETF',
-            'sector': 'Global Developed', 
-            'exchange': 'Euronext Amsterdam'
-        },
-        'CSPX.MI': {
-            'isin': 'IE00B5BMR087',
-            'name': 'iShares Core S&P 500 UCITS ETF',
-            'sector': 'US Large Cap',
-            'exchange': 'Borsa Italiana'
+            'sector': 'Global Developed',
+            'exchange': 'Euronext Amsterdam',
+            'currency': 'EUR'
         },
         'VWCE.DE': {
             'isin': 'IE00BK5BQT80',
             'name': 'Vanguard FTSE All-World UCITS ETF',
             'sector': 'Global All Cap',
-            'exchange': 'XETRA'
+            'exchange': 'XETRA',
+            'currency': 'EUR'
+        },
+        'CSPX.L': {
+            'isin': 'IE00B5BMR087',
+            'name': 'iShares Core S&P 500 UCITS ETF',
+            'sector': 'US Large Cap',
+            'exchange': 'London Stock Exchange',
+            'currency': 'GBP'
+        },
+        'IUSQ.DE': {
+            'isin': 'IE00B4L5YC18',
+            'name': 'iShares Core S&P 500 UCITS ETF',
+            'sector': 'US Large Cap',
+            'exchange': 'XETRA',
+            'currency': 'EUR'
         },
         'EIMI.DE': {
             'isin': 'IE00BKM4GZ66',
             'name': 'iShares Core MSCI EM IMI UCITS ETF',
             'sector': 'Emerging Markets',
-            'exchange': 'XETRA'
+            'exchange': 'XETRA',
+            'currency': 'EUR'
+        },
+        'VUSA.AS': {
+            'isin': 'IE00B3XXRP09',
+            'name': 'Vanguard S&P 500 UCITS ETF',
+            'sector': 'US Large Cap',
+            'exchange': 'Euronext Amsterdam',
+            'currency': 'EUR'
+        },
+        'VUAA.DE': {
+            'isin': 'IE00B3XXRP09',
+            'name': 'Vanguard S&P 500 UCITS ETF',
+            'sector': 'US Large Cap',
+            'exchange': 'XETRA',
+            'currency': 'EUR'
+        },
+        'VMID.AS': {
+            'isin': 'IE00BKX55T58',
+            'name': 'Vanguard FTSE Developed World UCITS ETF',
+            'sector': 'Global Developed',
+            'exchange': 'Euronext Amsterdam',
+            'currency': 'EUR'
         }
     }
     
@@ -109,44 +118,69 @@ class RealMarketDataService:
         self.twelve_data_api_key = twelve_data_api_key
     
     def get_real_etf_data(self, symbol: str) -> Optional[RealETFData]:
-        """Récupère les données réelles d'un ETF via Yahoo Finance"""
-        try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
-            hist = ticker.history(period="2d")
-            
-            if len(hist) < 1:
-                logger.warning(f"Pas de données historiques pour {symbol}")
-                return None
+        """Récupère les données réelles d'un ETF via Yahoo Finance avec retry"""
+        # Vérifier le cache d'abord
+        cache_key = f"etf_data:{symbol}"
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            logger.debug(f"Cache hit pour ETF {symbol}")
+            return cached_data
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                ticker = yf.Ticker(symbol)
                 
-            latest = hist.iloc[-1]
-            previous = hist.iloc[-2] if len(hist) > 1 else latest
-            
-            current_price = float(latest['Close'])
-            previous_close = float(previous['Close'])
-            change = current_price - previous_close
-            change_percent = (change / previous_close) * 100 if previous_close != 0 else 0
-            
-            etf_info = self.EUROPEAN_ETFS.get(symbol, {})
-            
-            return RealETFData(
-                symbol=symbol,
-                isin=etf_info.get('isin', 'N/A'),
-                name=etf_info.get('name', info.get('longName', 'Unknown ETF')),
-                current_price=current_price,
-                change=change,
-                change_percent=change_percent,
-                volume=int(latest.get('Volume', 0)),
-                market_cap=info.get('totalAssets'),
-                currency=info.get('currency', 'EUR'),
-                exchange=etf_info.get('exchange', info.get('exchange', 'Unknown')),
-                sector=etf_info.get('sector', 'Unknown'),
-                last_update=datetime.now()
-            )
-            
-        except Exception as e:
-            logger.error(f"Erreur lors de la récupération des données pour {symbol}: {e}")
-            return None
+                # Récupérer les données intraday pour avoir des données plus récentes
+                hist = ticker.history(period="5d", interval="1d")
+                
+                if hist.empty:
+                    logger.warning(f"Aucune donnée disponible pour {symbol}")
+                    return None
+                
+                # Prendre les données les plus récentes
+                latest = hist.iloc[-1]
+                previous = hist.iloc[-2] if len(hist) > 1 else latest
+                
+                current_price = float(latest['Close'])
+                previous_close = float(previous['Close']) if len(hist) > 1 else current_price
+                change = current_price - previous_close
+                change_percent = (change / previous_close) * 100 if previous_close != 0 else 0
+                
+                etf_info = self.EUROPEAN_ETFS.get(symbol, {})
+                
+                # Récupérer des informations supplémentaires
+                info = ticker.info
+                market_cap = info.get('totalAssets') or info.get('marketCap')
+                
+                etf_data = RealETFData(
+                    symbol=symbol,
+                    isin=etf_info.get('isin', 'N/A'),
+                    name=etf_info.get('name', info.get('longName', info.get('shortName', 'ETF Inconnu'))),
+                    current_price=current_price,
+                    change=change,
+                    change_percent=change_percent,
+                    volume=int(latest.get('Volume', 0)),
+                    market_cap=market_cap,
+                    currency=etf_info.get('currency', info.get('currency', 'EUR')),
+                    exchange=etf_info.get('exchange', info.get('exchange', 'Unknown')),
+                    sector=etf_info.get('sector', 'Unknown'),
+                    last_update=latest.name if hasattr(latest, 'name') else datetime.now()
+                )
+                
+                # Mettre en cache pour 30 secondes
+                cache.set(cache_key, etf_data, 30)
+                logger.debug(f"Données ETF {symbol} mises en cache")
+                
+                return etf_data
+                
+            except Exception as e:
+                logger.warning(f"Tentative {attempt + 1}/{max_retries} échouée pour {symbol}: {e}")
+                if attempt == max_retries - 1:
+                    logger.error(f"Échec définitif pour {symbol} après {max_retries} tentatives")
+                    return None
+                
+        return None
     
     def get_historical_data(self, symbol: str, period: str = "1mo") -> List[RealMarketDataPoint]:
         """Récupère les données historiques d'un ETF"""
@@ -217,8 +251,15 @@ class RealMarketDataService:
             if data:
                 etf_data.append(data)
                 logger.info(f"Données collectées pour {symbol}: {data.current_price} {data.currency}")
+            else:
+                logger.warning(f"Impossible de récupérer les données pour {symbol}")
         
+        logger.info(f"Collecte terminée: {len(etf_data)}/{len(self.EUROPEAN_ETFS)} ETFs récupérés")
         return etf_data
+    
+    def get_single_etf_data(self, symbol: str) -> Optional[RealETFData]:
+        """Récupère les données d'un seul ETF (pour tests)"""
+        return self.get_real_etf_data(symbol)
     
 
 # Service global

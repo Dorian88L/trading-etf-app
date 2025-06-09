@@ -39,26 +39,31 @@ const MarketOverview: React.FC<MarketOverviewProps> = ({
   const [activeTab, setActiveTab] = useState<'indices' | 'sectors' | 'sentiment'>('indices');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  // Données d'exemple si non fournies
+  // Données d'exemple si non fournies - en attendant les vraies données d'API
   const defaultIndices: MarketIndex[] = [
-    { name: 'CAC 40', symbol: 'CAC', value: 7425.30, change: 89.2, changePercent: 1.22, volume: 3200000000, region: 'France' },
-    { name: 'EURO STOXX 50', symbol: 'SX5E', value: 4286.15, change: 21.4, changePercent: 0.50, volume: 2100000000, region: 'Europe' },
-    { name: 'S&P 500', symbol: 'SPX', value: 4912.84, change: -14.2, changePercent: -0.29, volume: 2800000000, region: 'US' },
-    { name: 'NASDAQ', symbol: 'NDX', value: 17234.56, change: 45.8, changePercent: 0.27, volume: 4100000000, region: 'US' },
-    { name: 'FTSE 100', symbol: 'UKX', value: 7621.45, change: -12.3, changePercent: -0.16, volume: 1200000000, region: 'UK' },
-    { name: 'DAX', symbol: 'DAX', value: 16789.23, change: 156.7, changePercent: 0.94, volume: 3400000000, region: 'Germany' },
+    // Pas de données par défaut - l'application doit utiliser les vraies données
   ];
 
-  const defaultSectors: SectorPerformance[] = [
-    { name: 'Technologie', change: 1.8, volume: 12000000000, marketCap: 2500000000000 },
-    { name: 'Finance', change: 0.9, volume: 8500000000, marketCap: 1800000000000 },
-    { name: 'Santé', change: -0.3, volume: 6200000000, marketCap: 1200000000000 },
-    { name: 'Énergie', change: 2.4, volume: 9800000000, marketCap: 800000000000 },
-    { name: 'Biens de consommation', change: 0.6, volume: 4500000000, marketCap: 950000000000 },
-    { name: 'Industriel', change: 1.2, volume: 7100000000, marketCap: 760000000000 },
-    { name: 'Immobilier', change: -1.1, volume: 2300000000, marketCap: 520000000000 },
-    { name: 'Télécommunications', change: 0.1, volume: 3400000000, marketCap: 430000000000 },
-  ];
+  // Fetch sectors data from API instead of hardcoded values
+  const [sectorData, setSectorData] = useState<SectorPerformance[]>([]);
+  
+  useEffect(() => {
+    const fetchSectors = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/v1/real-market/sectors');
+        if (response.ok) {
+          const data = await response.json();
+          setSectorData(data.data || []);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des données sectorielles:', error);
+      }
+    };
+    
+    fetchSectors();
+  }, []);
+
+  const defaultSectors: SectorPerformance[] = sectorData;
 
   const displayIndices = indices.length > 0 ? indices : defaultIndices;
   const displaySectors = sectors.length > 0 ? sectors : defaultSectors;

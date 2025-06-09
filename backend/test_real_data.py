@@ -1,181 +1,153 @@
 #!/usr/bin/env python3
-
 """
-Test simple des données de marché réelles avec yfinance
+Tests de validation pour les données temps réel et les performances
 """
 
-import yfinance as yf
-from datetime import datetime
-import requests
+import time
+import logging
+from typing import List, Dict, Any
 
-def test_european_etfs():
-    """Test des ETFs européens avec Yahoo Finance"""
+from app.services.real_market_data import real_market_service
+from app.core.cache import cache, CacheManager
+
+# Configuration du logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class RealDataTester:
+    """Classe pour tester les données temps réel et les performances"""
     
-    # ETFs européens populaires
-    european_etfs = {
-        'LYX0CD.PA': 'Lyxor CAC 40 UCITS ETF',
-        'SX5T.DE': 'Xtrackers EURO STOXX 50 UCITS ETF', 
-        'EUNL.DE': 'iShares Core MSCI World UCITS ETF',
-        'VWCE.DE': 'Vanguard FTSE All-World UCITS ETF'
-    }
+    def __init__(self):
+        self.market_service = real_market_service
+        self.test_symbols = ['IWDA.AS', 'VWCE.DE', 'CSPX.L', 'VUAA.DE']
+        self.results = []
     
-    print("🚀 Test des données de marché réelles européennes")
-    print("=" * 60)
-    
-    real_data = []
-    
-    for symbol, name in european_etfs.items():
+    def test_single_etf_data(self, symbol: str) -> Dict[str, Any]:
+        """Test de récupération de données pour un ETF"""
+        start_time = time.time()
+        
         try:
-            print(f"\n📊 Récupération des données pour {symbol}...")
+            data = self.market_service.get_single_etf_data(symbol)
+            end_time = time.time()
             
-            # Créer l'objet ticker
-            ticker = yf.Ticker(symbol)
-            
-            # Récupérer les informations générales
-            info = ticker.info
-            
-            # Récupérer l'historique récent (2 jours pour calcul du changement)
-            hist = ticker.history(period="2d")
-            
-            if len(hist) >= 1:
-                latest = hist.iloc[-1]
-                previous = hist.iloc[-2] if len(hist) > 1 else latest
-                
-                current_price = float(latest['Close'])
-                previous_close = float(previous['Close'])
-                change = current_price - previous_close
-                change_percent = (change / previous_close) * 100 if previous_close != 0 else 0
-                
-                etf_data = {
+            if data:
+                result = {
                     'symbol': symbol,
-                    'name': name,
-                    'current_price': round(current_price, 2),
-                    'change': round(change, 2),
-                    'change_percent': round(change_percent, 2),
-                    'volume': int(latest.get('Volume', 0)),
-                    'currency': info.get('currency', 'EUR'),
-                    'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    'status': 'SUCCESS',
+                    'response_time_ms': round((end_time - start_time) * 1000, 2),
+                    'current_price': data.current_price,
+                    'change_percent': data.change_percent,
+                    'volume': data.volume,
+                    'currency': data.currency,
+                    'last_update': str(data.last_update),
+                    'data_quality': self._evaluate_data_quality(data)
+                }
+            else:
+                result = {
+                    'symbol': symbol,
+                    'status': 'NO_DATA',
+                    'response_time_ms': round((end_time - start_time) * 1000, 2),
+                    'error': 'Aucune donnée retournée'
                 }
                 
-                real_data.append(etf_data)
-                
-                print(f"✅ {name}")
-                print(f"   Prix: {current_price:.2f} {etf_data['currency']}")
-                print(f"   Variation: {change:+.2f} ({change_percent:+.2f}%)")
-                print(f"   Volume: {etf_data['volume']:,}")
-                
-            else:
-                print(f"❌ Pas de données pour {symbol}")
-                
         except Exception as e:
-            print(f"❌ Erreur pour {symbol}: {e}")
-            continue
+            end_time = time.time()
+            result = {
+                'symbol': symbol,
+                'status': 'ERROR',
+                'response_time_ms': round((end_time - start_time) * 1000, 2),
+                'error': str(e)
+            }
+        
+        return result
     
-    print(f"\n✅ Collecte terminée: {len(real_data)} ETFs récupérés sur {len(european_etfs)}")
-    return real_data
+    def _evaluate_data_quality(self, data) -> str:
+        """Évalue la qualité des données"""
+        issues = []
+        
+        if data.current_price <= 0:
+            issues.append("Prix invalide")
+        
+        if data.volume < 0:
+            issues.append("Volume invalide")
+        
+        if abs(data.change_percent) > 50:
+            issues.append("Variation suspecte")
+        
+        if not data.currency or data.currency == 'N/A':
+            issues.append("Devise manquante")
+        
+        if issues:
+            return f"PROBLEMES: {', '.join(issues)}"
+        
+        return "BONNE"
+    
+    def run_full_test_suite(self) -> Dict[str, Any]:
+        """Exécute la suite complète de tests"""
+        logger.info("🚀 Démarrage de la suite de tests complète...")
+        
+        # Test des ETFs individuels
+        etf_results = []
+        for symbol in self.test_symbols:
+            logger.info(f"Test de {symbol}...")
+            result = self.test_single_etf_data(symbol)
+            etf_results.append(result)
+            time.sleep(0.5)  # Délai pour éviter les limites de taux
+        
+        # Statistiques globales
+        successful_etfs = [r for r in etf_results if r['status'] == 'SUCCESS']
+        avg_response_time = sum(r['response_time_ms'] for r in successful_etfs) / len(successful_etfs) if successful_etfs else 0
+        
+        summary = {
+            'test_timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
+            'total_etfs_tested': len(etf_results),
+            'successful_etfs': len(successful_etfs),
+            'success_rate': round((len(successful_etfs) / len(etf_results)) * 100, 1) if etf_results else 0,
+            'avg_response_time_ms': round(avg_response_time, 2),
+            'detailed_results': etf_results
+        }
+        
+        return summary
 
-def test_market_indices():
-    """Test des indices de marché européens"""
-    
-    indices = {
-        '^FCHI': 'CAC 40',
-        '^STOXX50E': 'EURO STOXX 50',
-        '^GDAXI': 'DAX',
-        '^FTSE': 'FTSE 100'
-    }
-    
-    print("\n📈 Test des indices de marché européens")
-    print("=" * 60)
-    
-    indices_data = {}
-    
-    for symbol, name in indices.items():
-        try:
-            print(f"\n📊 Récupération de {name} ({symbol})...")
-            
-            ticker = yf.Ticker(symbol)
-            hist = ticker.history(period="2d")
-            info = ticker.info
-            
-            if len(hist) >= 1:
-                latest = hist.iloc[-1]
-                previous = hist.iloc[-2] if len(hist) > 1 else latest
-                
-                current_value = float(latest['Close'])
-                previous_close = float(previous['Close'])
-                change = current_value - previous_close
-                change_percent = (change / previous_close) * 100 if previous_close != 0 else 0
-                
-                indices_data[symbol] = {
-                    'name': name,
-                    'value': round(current_value, 2),
-                    'change': round(change, 2),
-                    'change_percent': round(change_percent, 2),
-                    'volume': int(latest.get('Volume', 0)),
-                    'currency': info.get('currency', 'EUR'),
-                    'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                }
-                
-                print(f"✅ {name}: {current_value:.2f}")
-                print(f"   Variation: {change:+.2f} ({change_percent:+.2f}%)")
-                
-            else:
-                print(f"❌ Pas de données pour {symbol}")
-                
-        except Exception as e:
-            print(f"❌ Erreur pour {symbol}: {e}")
-            continue
-    
-    print(f"\n✅ Indices collectés: {len(indices_data)}")
-    return indices_data
-
-def test_historical_data():
-    """Test des données historiques"""
-    
-    print("\n📊 Test des données historiques (CAC 40 ETF)")
-    print("=" * 60)
+def main():
+    """Fonction principale pour exécuter les tests"""
+    tester = RealDataTester()
     
     try:
-        ticker = yf.Ticker('LYX0CD.PA')
-        hist = ticker.history(period="5d")
+        results = tester.run_full_test_suite()
         
-        print(f"✅ Données historiques récupérées: {len(hist)} jours")
-        print("\nDerniers jours:")
-        print("-" * 70)
-        print("Date".ljust(12) + "Ouverture".ljust(12) + "Clôture".ljust(12) + "Volume".ljust(15))
-        print("-" * 70)
+        print("\n" + "="*60)
+        print("📊 RÉSULTATS DES TESTS")
+        print("="*60)
         
-        for index, row in hist.tail(5).iterrows():
-            date_str = index.strftime('%Y-%m-%d')
-            print(f"{date_str.ljust(12)}{row['Open']:.2f}".ljust(12) + 
-                  f"{row['Close']:.2f}".ljust(12) + 
-                  f"{int(row['Volume']):,}".ljust(15))
+        print(f"✅ ETFs testés: {results['total_etfs_tested']}")
+        print(f"✅ Succès: {results['successful_etfs']}/{results['total_etfs_tested']} ({results['success_rate']}%)")
+        print(f"⏱️  Temps de réponse moyen: {results['avg_response_time_ms']}ms")
         
-        return hist
+        print(f"\n📝 Détails par ETF:")
+        for result in results['detailed_results']:
+            status_icon = "✅" if result['status'] == 'SUCCESS' else "❌"
+            print(f"   {status_icon} {result['symbol']}: {result['response_time_ms']}ms - {result['status']}")
+            
+            if result['status'] == 'SUCCESS':
+                print(f"      Prix: {result.get('current_price', 'N/A')} {result.get('currency', '')}")
+                print(f"      Variation: {result.get('change_percent', 0):.2f}%")
+                print(f"      Qualité: {result.get('data_quality', 'N/A')}")
+        
+        # Vérification finale
+        print(f"\n🎯 STATUT GLOBAL:")
+        if results['success_rate'] >= 80 and results['avg_response_time_ms'] < 2000:
+            print("   🟢 EXCELLENT - Application prête pour la production")
+        elif results['success_rate'] >= 60:
+            print("   🟡 CORRECT - Quelques améliorations recommandées")
+        else:
+            print("   🔴 PROBLÉMATIQUE - Corrections nécessaires")
+        
+        return results
         
     except Exception as e:
-        print(f"❌ Erreur lors de la récupération de l'historique: {e}")
+        logger.error(f"❌ Erreur lors des tests: {e}")
         return None
 
 if __name__ == "__main__":
-    print("🌍 Test des données de marché réelles européennes")
-    print("🕐 Timestamp:", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    print()
-    
-    # Test des ETFs
-    etf_data = test_european_etfs()
-    
-    # Test des indices
-    indices_data = test_market_indices()
-    
-    # Test des données historiques
-    historical_data = test_historical_data()
-    
-    print("\n" + "=" * 60)
-    print("🎉 Test terminé avec succès!")
-    print(f"📊 ETFs collectés: {len(etf_data)}")
-    print(f"📈 Indices collectés: {len(indices_data)}")
-    print(f"📊 Données historiques: {'Oui' if historical_data is not None else 'Non'}")
-    print()
-    print("✅ Les données de marché réelles sont maintenant disponibles!")
-    print("🔗 Vous pouvez maintenant intégrer ces données dans votre application.")
+    main()

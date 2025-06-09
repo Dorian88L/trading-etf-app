@@ -153,18 +153,137 @@ self.addEventListener('notificationclick', (event) => {
 
 // Background sync for offline actions
 self.addEventListener('sync', (event) => {
-  if (event.tag === 'background-sync') {
-    event.waitUntil(
-      // Handle background synchronization
-      Promise.resolve()
-    );
+  console.log('Background sync triggered:', event.tag);
+
+  if (event.tag === 'signals-sync') {
+    event.waitUntil(syncSignals());
+  } else if (event.tag === 'market-data-sync') {
+    event.waitUntil(syncMarketData());
+  } else if (event.tag === 'background-sync') {
+    event.waitUntil(Promise.resolve());
   }
 });
 
-// Share target handling (for PWA share functionality)
+// Fonction pour synchroniser les signaux
+async function syncSignals() {
+  try {
+    console.log('Syncing signals in background...');
+    
+    const response = await fetch('/api/v1/signals/advanced?limit=10');
+    if (response.ok) {
+      const signals = await response.json();
+      
+      // Vérifier s'il y a de nouveaux signaux avec une confiance élevée
+      const highConfidenceSignals = signals.filter(signal => 
+        signal.confidence > 80 && 
+        (signal.signal_type === 'BUY' || signal.signal_type === 'SELL')
+      );
+
+      // Envoyer une notification pour les signaux importants
+      for (const signal of highConfidenceSignals) {
+        const title = `Signal ${signal.signal_type} Fort!`;
+        const body = `${signal.etf_name}: ${signal.signal_type} (Confiance: ${signal.confidence.toFixed(0)}%)`;
+        
+        await self.registration.showNotification(title, {
+          body: body,
+          icon: '/logo192.png',
+          badge: '/logo192.png',
+          tag: `signal-${signal.id}`,
+          requireInteraction: true,
+          data: { 
+            signal: signal,
+            url: `/signals?highlight=${signal.id}`
+          },
+          actions: [
+            {
+              action: 'view',
+              title: 'Voir le signal',
+              icon: '/logo192.png'
+            },
+            {
+              action: 'dismiss',
+              title: 'Ignorer'
+            }
+          ]
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error syncing signals:', error);
+  }
+}
+
+// Fonction pour synchroniser les données de marché
+async function syncMarketData() {
+  try {
+    console.log('Syncing market data in background...');
+    
+    // Synchroniser les ETFs principaux
+    const etfs = ['FR0010296061', 'IE00B4L5Y983', 'LU0290358497'];
+    
+    for (const etfIsin of etfs) {
+      try {
+        const response = await fetch(`/api/v1/market-data/${etfIsin}?days=1`);
+        if (response.ok) {
+          const data = await response.json();
+          // Les données sont automatiquement mises en cache par le fetch handler
+        }
+      } catch (error) {
+        console.error(`Error syncing data for ${etfIsin}:`, error);
+      }
+    }
+    
+    return Promise.resolve();
+  } catch (error) {
+    console.error('Error syncing market data:', error);
+  }
+}
+
+// Gestion périodique des données (si supporté)
+if ('periodicSync' in self.registration) {
+  self.addEventListener('periodicsync', (event) => {
+    console.log('Periodic sync:', event.tag);
+
+    if (event.tag === 'market-update') {
+      event.waitUntil(syncMarketData());
+    } else if (event.tag === 'signals-update') {
+      event.waitUntil(syncSignals());
+    }
+  });
+}
+
+// Gestion des événements de connectivité
+self.addEventListener('online', () => {
+  console.log('Connection restored, syncing data...');
+  syncSignals();
+  syncMarketData();
+});
+
+self.addEventListener('offline', () => {
+  console.log('Connection lost, entering offline mode...');
+});
+
+// Share target handling et messages améliorés
 self.addEventListener('message', (event) => {
+  console.log('SW received message:', event.data);
+
   if (event.data && event.data.type === 'SHARE_TARGET') {
-    // Handle shared content
     event.ports[0].postMessage({ success: true });
+  }
+  
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+  
+  if (event.data && event.data.type === 'SYNC_SIGNALS') {
+    syncSignals();
+  }
+  
+  if (event.data && event.data.type === 'SYNC_MARKET_DATA') {
+    syncMarketData();
+  }
+  
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({ version: CACHE_NAME });
   }
 });

@@ -11,7 +11,8 @@ from app.core.security import (
     create_refresh_token,
     verify_token
 )
-from app.models.user import User, UserPreferences
+from app.models.user import User
+from app.models.user_preferences import UserPreferences
 from app.schemas.user import UserCreate, UserResponse
 from app.schemas.token import Token
 

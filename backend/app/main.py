@@ -11,7 +11,35 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description=settings.DESCRIPTION,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    docs_url="/docs",  # Swagger UI
+    redoc_url="/redoc",  # ReDoc
+    openapi_tags=[
+        {
+            "name": "authentication",
+            "description": "Gestion de l'authentification et des utilisateurs"
+        },
+        {
+            "name": "market",
+            "description": "Données de marché temps réel et indices européens"
+        },
+        {
+            "name": "signals",
+            "description": "Signaux de trading automatisés"
+        },
+        {
+            "name": "portfolio",
+            "description": "Gestion des portfolios et positions"
+        },
+        {
+            "name": "alerts",
+            "description": "Système d'alertes et notifications"
+        },
+        {
+            "name": "monitoring",
+            "description": "Monitoring système et performance"
+        }
+    ]
 )
 
 # Add CORS middleware

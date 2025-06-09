@@ -4,7 +4,8 @@ from typing import List
 
 from app.core.database import get_db
 from app.api.deps import get_current_active_user
-from app.models.user import User, UserPreferences
+from app.models.user import User
+from app.models.user_preferences import UserPreferences
 from app.models.watchlist import Watchlist
 from app.schemas.user import UserResponse, UserPreferencesResponse, UserPreferencesUpdate
 from app.schemas.watchlist import WatchlistResponse

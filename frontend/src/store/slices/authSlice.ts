@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { User, LoginCredentials, RegisterData, AuthTokens } from '../../types';
-import { authAPI, setAuthToken, removeAuthToken } from '../../services/api';
+import { authAPI, userAPI, setAuthToken, removeAuthToken } from '../../services/api';
 
 interface AuthState {
   user: User | null;
@@ -21,12 +21,21 @@ const initialState: AuthState = {
 // Async thunks
 export const loginUser = createAsyncThunk(
   'auth/login',
-  async (credentials: LoginCredentials, { rejectWithValue }) => {
+  async (credentials: LoginCredentials, { rejectWithValue, dispatch }) => {
     try {
       const tokens = await authAPI.login(credentials);
       setAuthToken(tokens.access_token);
       localStorage.setItem('refresh_token', tokens.refresh_token);
-      return tokens;
+      
+      // Automatically fetch user profile after login
+      try {
+        const user = await userAPI.getProfile();
+        return { tokens, user };
+      } catch (profileError) {
+        // If profile fetch fails, still return tokens
+        console.warn('Could not fetch user profile:', profileError);
+        return { tokens, user: null };
+      }
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || 'Login failed');
     }
@@ -41,6 +50,18 @@ export const registerUser = createAsyncThunk(
       return user;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || 'Registration failed');
+    }
+  }
+);
+
+export const fetchUserProfile = createAsyncThunk(
+  'auth/fetchUserProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const user = await userAPI.getProfile();
+      return user;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || 'Failed to fetch user profile');
     }
   }
 );
@@ -81,7 +102,8 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.tokens = action.payload;
+        state.tokens = action.payload.tokens;
+        state.user = action.payload.user;
         state.isAuthenticated = true;
         state.error = null;
       })
@@ -100,6 +122,20 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(registerUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Fetch User Profile
+      .addCase(fetchUserProfile.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(fetchUserProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload;
+        state.isAuthenticated = true;
+        state.error = null;
+      })
+      .addCase(fetchUserProfile.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })

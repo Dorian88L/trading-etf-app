@@ -7,26 +7,37 @@ import {
   ArrowTrendingUpIcon,
   BellIcon,
   CogIcon,
+  BookOpenIcon,
   Bars3Icon,
   XMarkIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  ComputerDesktopIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
-import { useAppDispatch } from '../hooks/redux';
+import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { logoutUser } from '../store/slices/authSlice';
+import { EmojiNotificationButton } from './notifications/EmojiNotificationButton';
+import WatchlistManager from './WatchlistManager';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'ETFs', href: '/etfs', icon: ChartBarIcon },
+  { name: 'Scoring', href: '/scoring', icon: ArrowTrendingUpIcon },
   { name: 'Signals', href: '/signals', icon: ArrowTrendingUpIcon },
   { name: 'Portfolio', href: '/portfolio', icon: CurrencyDollarIcon },
+  { name: 'Backtesting', href: '/backtesting', icon: CogIcon },
+  { name: 'Monitoring', href: '/monitoring', icon: ComputerDesktopIcon },
   { name: 'Alerts', href: '/alerts', icon: BellIcon },
   { name: 'Settings', href: '/settings', icon: CogIcon },
+  { name: 'Documentation', href: '/documentation', icon: BookOpenIcon },
 ];
 
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [watchlistOpen, setWatchlistOpen] = useState(false);
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const { user } = useAppSelector((state) => state.auth);
 
   const handleLogout = () => {
     dispatch(logoutUser());
@@ -119,7 +130,36 @@ const Layout: React.FC = () => {
               })}
             </nav>
           </div>
-          <div className="flex flex-shrink-0 p-4">
+          <div className="flex flex-shrink-0 p-4 space-y-3">
+            {/* User Info */}
+            {user && (
+              <div className="flex items-center space-x-3 p-2 border-t border-gray-200">
+                <div className="flex-shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
+                    <span className="text-sm font-medium text-white">
+                      {user.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {user.full_name || user.email}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                </div>
+              </div>
+            )}
+            
+            <div className="hidden lg:block space-y-2">
+              <button
+                onClick={() => setWatchlistOpen(true)}
+                className="w-full flex items-center justify-center px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+              >
+                <EyeIcon className="h-5 w-5 mr-2" />
+                <span className="text-sm font-medium">Watchlist</span>
+              </button>
+              <EmojiNotificationButton />
+            </div>
             <button
               onClick={handleLogout}
               className="group flex w-full items-center px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900"
@@ -144,7 +184,7 @@ const Layout: React.FC = () => {
               <Bars3Icon className="h-6 w-6" />
             </button>
             <h1 className="text-lg font-semibold text-gray-900">TradingETF</h1>
-            <div className="w-10" /> {/* Spacer */}
+            <EmojiNotificationButton className="lg:hidden" />
           </div>
         </div>
 
@@ -153,6 +193,12 @@ const Layout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+
+      {/* Watchlist Manager Modal */}
+      <WatchlistManager
+        isOpen={watchlistOpen}
+        onClose={() => setWatchlistOpen(false)}
+      />
     </div>
   );
 };

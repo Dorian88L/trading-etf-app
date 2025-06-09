@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, Text, DECIMAL, ForeignKey
+from sqlalchemy import Column, String, Boolean, DateTime, Text, DECIMAL, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -21,26 +21,12 @@ class User(Base):
     # Relationships
     preferences = relationship("UserPreferences", back_populates="user", uselist=False)
     portfolios = relationship("Portfolio", back_populates="user")
+    watchlist = relationship("UserWatchlist", back_populates="user")
     watchlists = relationship("Watchlist", back_populates="user")
     alerts = relationship("Alert", back_populates="user")
+    user_alerts = relationship("UserAlert", back_populates="user")
+    signal_subscriptions = relationship("UserSignalSubscription", back_populates="user")
+    push_subscriptions = relationship("PushSubscription", back_populates="user")
+    notification_preferences = relationship("UserNotificationPreferences", back_populates="user", uselist=False)
 
 
-class UserPreferences(Base):
-    __tablename__ = "user_preferences"
-    
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
-    risk_tolerance = Column(DECIMAL(3, 2), default=0.5)
-    min_signal_confidence = Column(DECIMAL(5, 2), default=60)
-    notification_settings = Column(
-        JSONB, 
-        default={"email": True, "push": True, "sms": False}
-    )
-    trading_preferences = Column(
-        JSONB,
-        default={"max_position_size": 0.1, "stop_loss_pct": 0.05}
-    )
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
-    # Relationships
-    user = relationship("User", back_populates="preferences")

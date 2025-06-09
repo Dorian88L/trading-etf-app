@@ -106,6 +106,21 @@ def get_latest_signals_for_etf(
     return signals
 
 
+@router.get("/demo", response_model=List[SignalResponse])
+def get_demo_signals(
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """Get demo signals without authentication (for testing)"""
+    signals = (
+        db.query(Signal)
+        .filter(Signal.is_active == True)
+        .order_by(Signal.confidence.desc(), Signal.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return signals
+
 @router.get("/top-performers")
 def get_top_performing_signals(
     limit: int = Query(20, ge=1, le=100),
