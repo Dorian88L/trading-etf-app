@@ -128,18 +128,18 @@ npm start
 ## 🌐 URLs et Endpoints
 
 ### Frontend
-- **Application principale** : http://localhost:3000
-- **Sélection ETF** : http://localhost:3000/etf-selection
-- **Dashboard** : http://localhost:3000/dashboard
-- **Portfolio** : http://localhost:3000/portfolio
+- **Application principale** : http://localhost:80
+- **Sélection ETF** : http://localhost:80/etf-selection
+- **Dashboard** : http://localhost:80/dashboard
+- **Portfolio** : http://localhost:80/portfolio
 
 ### Backend API
-- **Documentation Swagger** : http://localhost:8000/docs
-- **Health Check** : http://localhost:8000/health
-- **Catalogue ETF** : http://localhost:8000/api/v1/etfs/catalog
-- **ETFs populaires** : http://localhost:8000/api/v1/etfs/popular
-- **Signaux avancés** : http://localhost:8000/api/v1/signals/advanced
-- **Monitoring système** : http://localhost:8000/api/v1/monitoring/status
+- **Documentation Swagger** : http://localhost:8443/docs
+- **Health Check** : http://localhost:8443/health
+- **Catalogue ETF** : http://localhost:8443/api/v1/etfs/catalog
+- **ETFs populaires** : http://localhost:8443/api/v1/etfs/popular
+- **Signaux avancés** : http://localhost:8443/api/v1/signals/advanced
+- **Monitoring système** : http://localhost:8443/api/v1/monitoring/status
 
 ## 🔧 Configuration
 
@@ -209,13 +209,13 @@ JWT_SECRET_KEY=your-secret-key
 ### Tests API
 ```bash
 # Test du catalogue ETF
-curl http://localhost:8000/api/v1/etfs/catalog
+curl http://localhost:8443/api/v1/etfs/catalog
 
 # Test des signaux
-curl http://localhost:8000/api/v1/signals/advanced
+curl http://localhost:8443/api/v1/signals/advanced
 
 # Test des données temps réel
-curl http://localhost:8000/api/v1/real-market/etf/IWDA.AS
+curl http://localhost:8443/api/v1/real-market/etf/IWDA.AS
 ```
 
 ### Tests Frontend

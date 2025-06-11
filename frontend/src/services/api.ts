@@ -23,6 +23,10 @@ import {
 
 const API_BASE_URL = API_CONFIG.BASE_URL;
 
+// Debug: Afficher l'URL API utilisée
+console.log('🔧 DEBUG API_BASE_URL:', API_BASE_URL);
+console.log('🔧 DEBUG Full API URL:', `${API_BASE_URL}/api/v1`);
+
 // Create axios instance
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
@@ -118,8 +122,18 @@ export const authAPI = {
   },
   
   register: async (userData: RegisterData): Promise<User> => {
-    const response = await api.post('/auth/register', userData);
-    return response.data;
+    console.log('🔧 DEBUG Register request:', {
+      url: `${API_BASE_URL}/api/v1/auth/register`,
+      data: userData
+    });
+    try {
+      const response = await api.post('/auth/register', userData);
+      console.log('🔧 DEBUG Register success:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('🔧 DEBUG Register error:', error);
+      throw error;
+    }
   },
   
   refreshToken: async (refreshToken: string): Promise<AuthTokens> => {

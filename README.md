@@ -47,7 +47,7 @@ npm install
 npm start
 ```
 
-3. **Accès**: http://localhost:3000 
+3. **Accès**: http://localhost:80 
    - Connexion: test@trading.com / test123
 
 ## 📋 Déploiement Production

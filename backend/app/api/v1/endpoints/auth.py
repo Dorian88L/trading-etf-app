@@ -19,6 +19,12 @@ from app.schemas.token import Token
 router = APIRouter()
 
 
+@router.options("/register")
+def register_options():
+    """Handle OPTIONS request for register endpoint"""
+    return {"message": "OK"}
+
+
 @router.post("/register", response_model=UserResponse)
 def register(
     user_in: UserCreate,
@@ -51,6 +57,12 @@ def register(
     db.commit()
     
     return user
+
+
+@router.options("/login")
+def login_options():
+    """Handle OPTIONS request for login endpoint"""
+    return {"message": "OK"}
 
 
 @router.post("/login", response_model=Token)

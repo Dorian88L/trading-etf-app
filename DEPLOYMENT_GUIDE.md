@@ -131,7 +131,7 @@ ENVIRONMENT=production
 DEBUG=False
 
 # CORS (ajuster selon vos domaines)
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://votre-domaine.com
+CORS_ALLOWED_ORIGINS=http://localhost:80,http://votre-domaine.com
 
 # API Keys (optionnel pour données réelles)
 ALPHA_VANTAGE_API_KEY=votre_cle_alpha_vantage
@@ -155,7 +155,7 @@ cd ../frontend
 npm install
 
 # Variables d'environnement
-echo "REACT_APP_API_URL=http://localhost:8000" > .env
+echo "REACT_APP_API_URL=http://localhost:8443" > .env
 
 # Build production
 npm run build
@@ -185,7 +185,7 @@ server {
 
     # Backend API
     location /api/ {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8443;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -198,7 +198,7 @@ server {
 
     # Documentation API
     location /docs {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8443;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
@@ -302,7 +302,7 @@ sudo tail -f /var/log/trading-backend.log
 ### 3. Tests
 ```bash
 # Health check backend
-curl http://localhost:8000/health
+curl http://localhost:8443/health
 
 # Test frontend
 curl http://localhost/
@@ -337,7 +337,7 @@ sudo supervisorctl status
 ps aux | grep -E "(python|nginx|postgres|redis)"
 
 # Ports
-sudo netstat -tlnp | grep -E ":80|:8000|:5432|:6379"
+sudo netstat -tlnp | grep -E ":80|:8443|:5432|:6379"
 
 # Ressources
 htop
@@ -398,7 +398,7 @@ redis-cli ping
 # Nginx erreur 502
 sudo nginx -t
 sudo systemctl status nginx
-curl http://localhost:8000/health
+curl http://localhost:8443/health
 ```
 
 ### 2. Reset complet

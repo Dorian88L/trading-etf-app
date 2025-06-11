@@ -196,8 +196,7 @@ services:
     container_name: trading_frontend_prod
     restart: unless-stopped
     ports:
-      - "80:8080"   # HTTP
-      - "443:8443"  # HTTPS (si SSL configuré)
+      - "8080:8080"   # HTTP accessible depuis l'extérieur
     volumes:
       - ./frontend/ssl:/etc/nginx/ssl:ro  # Certificats SSL
       - ./logs/nginx:/var/log/nginx
@@ -220,30 +219,30 @@ services:
       - /var/cache/nginx
       - /var/run
 
-  # Reverse Proxy Nginx (optionnel pour load balancing)
-  nginx_proxy:
-    image: nginx:1.24-alpine
-    container_name: trading_nginx_proxy_prod
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-      - ./logs/nginx:/var/log/nginx
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - frontend_network
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /var/cache/nginx
-      - /var/run
+  # Reverse Proxy Nginx (optionnel pour load balancing) - COMMENTÉ POUR SIMPLICITÉ
+  # nginx_proxy:
+  #   image: nginx:1.24-alpine
+  #   container_name: trading_nginx_proxy_prod
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./nginx/ssl:/etc/nginx/ssl:ro
+  #     - ./logs/nginx:/var/log/nginx
+  #   depends_on:
+  #     - frontend
+  #     - backend
+  #   networks:
+  #     - frontend_network
+  #   security_opt:
+  #     - no-new-privileges:true
+  #   read_only: true
+  #   tmpfs:
+  #     - /tmp
+  #     - /var/cache/nginx
+  #     - /var/run
 
   # Monitoring avec Prometheus (optionnel)
   prometheus:

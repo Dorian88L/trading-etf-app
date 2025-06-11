@@ -167,7 +167,7 @@ tail -f logs/celery_worker.log
 tail -f logs/backend.log
 
 # Status des tâches
-curl http://localhost:8000/api/v1/monitoring/celery-status
+curl http://localhost:8443/api/v1/monitoring/celery-status
 ```
 
 ### Tests et Validation
@@ -176,7 +176,7 @@ curl http://localhost:8000/api/v1/monitoring/celery-status
 python test_notifications.py
 
 # Test d'un signal spécifique
-curl -X POST http://localhost:8000/api/v1/notifications/test \
+curl -X POST http://localhost:8443/api/v1/notifications/test \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"title":"Test Signal","body":"IWDA.AS: BUY 85%"}'

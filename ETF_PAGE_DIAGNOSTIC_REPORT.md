@@ -112,7 +112,7 @@ npm run build
 
 ### Vérifications Serveur
 ```bash
-# ✅ Frontend accessible sur http://localhost:3000
+# ✅ Frontend accessible sur http://localhost:80
 # ✅ Route /etfs accessible (HTTP 200)  
 # ✅ API backend accessible (HTTP 200)
 ```

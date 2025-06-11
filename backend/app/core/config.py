@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", 
-        "postgresql://trading_user:trading_password@localhost:5433/trading_etf"
+        "postgresql://trading_user:trading_password@localhost:5432/trading_etf"
     )
     
     # Redis
@@ -58,12 +58,21 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = REDIS_URL
     CELERY_RESULT_BACKEND: str = REDIS_URL
     
-    # CORS
+    # CORS - HTTPS uniquement pour la production
     BACKEND_CORS_ORIGINS: list[str] = [
+        # Développement local seulement
+        "http://localhost:80",
         "http://localhost:3000",
         "http://localhost:8000",
+        "https://localhost:80",
         "https://localhost:3000",
-        "https://localhost:8000"
+        "https://localhost:8000",
+        # Production - HTTPS uniquement
+        "https://investeclaire.fr",
+        "https://www.investeclaire.fr",
+        # Fallback IP HTTPS uniquement
+        "https://217.154.120.215",
+        "https://91.165.87.76"
     ]
     
     # External APIs

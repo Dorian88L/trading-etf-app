@@ -29,9 +29,9 @@ cd /home/dorian/trading-etf-app
 
 Une fois l'application démarrée, accède aux URLs suivantes **depuis ton navigateur Windows** :
 
-- 🌐 **Frontend** : http://localhost:3000
-- 🔌 **Backend API** : http://localhost:8000  
-- 📚 **Documentation** : http://localhost:8000/docs
+- 🌐 **Frontend** : http://localhost:80
+- 🔌 **Backend API** : http://localhost:8443  
+- 📚 **Documentation** : http://localhost:8443/docs
 
 ### **🌍 Accès depuis d'autres appareils du réseau**
 
@@ -43,8 +43,8 @@ ipconfig | findstr "IPv4"
 ```
 
 2. **Accède via l'IP** (exemple avec 192.168.1.100) :
-- Frontend : http://192.168.1.100:3000
-- Backend : http://192.168.1.100:8000
+- Frontend : http://192.168.1.100:80
+- Backend : http://192.168.1.100:8443
 
 ### **🔧 Vérification de la configuration**
 
@@ -53,15 +53,15 @@ ipconfig | findstr "IPv4"
 netsh interface portproxy show v4tov4
 
 # Tester la connectivité
-curl http://localhost:8000/health
+curl http://localhost:8443/health
 ```
 
 ### **🗑️ Nettoyage (si nécessaire)**
 
 ```powershell
 # Supprimer les redirections
-netsh interface portproxy delete v4tov4 listenport=3000
-netsh interface portproxy delete v4tov4 listenport=8000
+netsh interface portproxy delete v4tov4 listenport=80
+netsh interface portproxy delete v4tov4 listenport=8443
 
 # Supprimer les règles de pare-feu
 Remove-NetFirewallRule -DisplayName "Trading ETF Frontend"
