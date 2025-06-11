@@ -1,4 +1,5 @@
 import React from 'react';
+import { getBaseApiUrl } from '../../config/api';
 
 interface DiagnosticProps {
   etfs: any[];
@@ -49,7 +50,7 @@ const ETFListDiagnostic: React.FC<DiagnosticProps> = ({ etfs, loading, error }) 
         <div>
           <span className="font-medium">API Base URL:</span>
           <div className="text-gray-600 text-xs">
-            {process.env.REACT_APP_API_URL || 'http://localhost:8000'}
+            {getBaseApiUrl()}
           </div>
         </div>
       </div>

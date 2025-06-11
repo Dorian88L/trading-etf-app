@@ -231,7 +231,7 @@ const Backtesting: React.FC = () => {
         <>
           <AdvancedBacktestingEngine onResultsChange={handleResultsChange} />
           {results && (
-            <BacktestResults results={results} initialCapital={results.config?.initial_capital || 10000} />
+            <BacktestResults results={results} initialCapital={(results as any).config?.initial_capital || 10000} />
           )}
         </>
       )}

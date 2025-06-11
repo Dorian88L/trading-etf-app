@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BookOpenIcon, 
   ChartBarIcon, 
@@ -7,8 +7,12 @@ import {
   InformationCircleIcon,
   ChartPieIcon,
   ArrowTrendingUpIcon,
-  BellIcon
+  BellIcon,
+  MagnifyingGlassIcon,
+  DocumentTextIcon,
+  PaperClipIcon
 } from '@heroicons/react/24/outline';
+import { marketAPI } from '../services/api';
 
 interface DocSection {
   id: string;
@@ -19,6 +23,30 @@ interface DocSection {
 
 const Documentation: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>('overview');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [etfData, setEtfData] = useState<any[]>([]);
+  const [showInteractiveDemo, setShowInteractiveDemo] = useState(false);
+
+  useEffect(() => {
+    const fetchETFData = async () => {
+      try {
+        const data = await marketAPI.getRealETFs();
+        setEtfData(data.slice(0, 5)); // Limite à 5 ETFs pour la démo
+      } catch (error) {
+        console.error('Erreur lors du chargement des ETFs:', error);
+        // Données fallback pour la démo
+        setEtfData([
+          { symbol: 'IWDA.AS', regularMarketPrice: 85.42, regularMarketChangePercent: 1.23 },
+          { symbol: 'VWCE.DE', regularMarketPrice: 110.75, regularMarketChangePercent: -0.54 },
+          { symbol: 'CSPX.L', regularMarketPrice: 520.30, regularMarketChangePercent: 0.89 }
+        ]);
+      }
+    };
+
+    if (activeSection === 'etfs') {
+      fetchETFData();
+    }
+  }, [activeSection]);
 
   const sections: DocSection[] = [
     {
@@ -125,15 +153,51 @@ const Documentation: React.FC = () => {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">ETFs européens disponibles</h3>
             <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-900 mb-2">🌍 ETFs suivis</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-blue-800 text-sm">
-                <div>• <strong>IWDA.AS</strong> - iShares Core MSCI World</div>
-                <div>• <strong>VWCE.DE</strong> - Vanguard FTSE All-World</div>
-                <div>• <strong>CSPX.L</strong> - iShares Core S&P 500</div>
-                <div>• <strong>VUAA.DE</strong> - Vanguard S&P 500</div>
-                <div>• <strong>IUSQ.DE</strong> - iShares Core S&P 500</div>
-                <div>• <strong>EIMI.DE</strong> - iShares Core MSCI EM</div>
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="font-semibold text-blue-900">🌍 ETFs suivis en temps réel</h4>
+                <button
+                  onClick={() => setShowInteractiveDemo(!showInteractiveDemo)}
+                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                >
+                  {showInteractiveDemo ? 'Masquer' : 'Voir démo'}
+                </button>
               </div>
+              
+              {showInteractiveDemo ? (
+                <div className="space-y-2">
+                  {etfData.map((etf) => (
+                    <div key={etf.symbol} className="flex justify-between items-center bg-white p-3 rounded border">
+                      <div>
+                        <span className="font-semibold text-gray-900">{etf.symbol}</span>
+                        <span className="text-sm text-gray-600 ml-2">Prix actuel</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-gray-900">
+                          {etf.regularMarketPrice?.toFixed(2) || 'N/A'} €
+                        </div>
+                        <div className={`text-sm font-medium ${
+                          (etf.regularMarketChangePercent || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {(etf.regularMarketChangePercent || 0) >= 0 ? '+' : ''}
+                          {(etf.regularMarketChangePercent || 0).toFixed(2)}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="text-xs text-blue-600 text-center mt-2">
+                    Données mises à jour automatiquement
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-blue-800 text-sm">
+                  <div>• <strong>IWDA.AS</strong> - iShares Core MSCI World</div>
+                  <div>• <strong>VWCE.DE</strong> - Vanguard FTSE All-World</div>
+                  <div>• <strong>CSPX.L</strong> - iShares Core S&P 500</div>
+                  <div>• <strong>VUAA.DE</strong> - Vanguard S&P 500</div>
+                  <div>• <strong>IUSQ.DE</strong> - iShares Core S&P 500</div>
+                  <div>• <strong>EIMI.DE</strong> - iShares Core MSCI EM</div>
+                </div>
+              )}
             </div>
           </div>
           
@@ -613,8 +677,134 @@ const Documentation: React.FC = () => {
           </div>
         </div>
       )
+    },
+    {
+      id: 'tutorial',
+      title: 'Tutoriel interactif',
+      icon: DocumentTextIcon,
+      content: (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">🎓 Tutoriel interactif - Premiers pas</h2>
+          
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">🚀 Guide de démarrage rapide</h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">1</div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Connexion à l'application</h4>
+                  <p className="text-gray-600 mb-2">Connectez-vous avec vos identifiants ou créez un compte</p>
+                  <div className="bg-gray-100 p-3 rounded text-sm font-mono">
+                    Email: test@trading.com<br />
+                    Mot de passe: test123
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">2</div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Explorer le Dashboard</h4>
+                  <p className="text-gray-600 mb-2">Découvrez la vue d'ensemble du marché et les statistiques principales</p>
+                  <button 
+                    onClick={() => window.location.href = '/dashboard'}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                  >
+                    🏠 Aller au Dashboard
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">3</div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Consulter les ETFs</h4>
+                  <p className="text-gray-600 mb-2">Explorez la liste des ETFs européens avec les prix en temps réel</p>
+                  <button 
+                    onClick={() => window.location.href = '/etf-list'}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                  >
+                    📊 Voir les ETFs
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">4</div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Analyser les signaux</h4>
+                  <p className="text-gray-600 mb-2">Découvrez les signaux de trading automatisés générés par nos algorithmes</p>
+                  <button 
+                    onClick={() => window.location.href = '/signals'}
+                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
+                  >
+                    🎯 Consulter les signaux
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">5</div>
+                <div>
+                  <h4 className="font-semibold text-gray-900">Gérer votre portfolio</h4>
+                  <p className="text-gray-600 mb-2">Suivez vos positions et analysez les performances</p>
+                  <button 
+                    onClick={() => window.location.href = '/portfolio'}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm"
+                  >
+                    💼 Gérer le portfolio
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-yellow-900 mb-3">💡 Conseils pour débuter</h3>
+            <ul className="space-y-2 text-yellow-800">
+              <li>• Commencez par explorer le Dashboard pour comprendre l'état général du marché</li>
+              <li>• Familiarisez-vous avec les ETFs en consultant leurs fiches détaillées</li>
+              <li>• Observez les signaux sans agir immédiatement pour comprendre leur logique</li>
+              <li>• Configurez des alertes sur quelques ETFs qui vous intéressent</li>
+              <li>• Testez les fonctionnalités de backtesting avant de prendre des positions réelles</li>
+            </ul>
+          </div>
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-green-900 mb-3">📚 Ressources utiles</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-semibold text-green-800 mb-2">📖 Guides détaillés</h4>
+                <ul className="space-y-1 text-green-700 text-sm">
+                  <li>• Comprendre les signaux de trading</li>
+                  <li>• Interpréter l'analyse technique</li>
+                  <li>• Optimiser la diversification</li>
+                  <li>• Gérer les risques efficacement</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold text-green-800 mb-2">🔧 Outils pratiques</h4>
+                <ul className="space-y-1 text-green-700 text-sm">
+                  <li>• Calculateur de position sizing</li>
+                  <li>• Simulateur de backtesting</li>
+                  <li>• Générateur d'alertes personnalisées</li>
+                  <li>• Analyseur de performance portfolio</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
     }
   ];
+
+  // Fonction de filtrage pour la recherche
+  const filteredSections = sections.filter(section =>
+    searchTerm === '' || 
+    section.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    section.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -624,11 +814,30 @@ const Documentation: React.FC = () => {
           <div className="p-6 border-b border-gray-200">
             <h1 className="text-xl font-bold text-gray-900">Documentation</h1>
             <p className="text-sm text-gray-600 mt-1">Guide complet de l'application</p>
+            
+            {/* Barre de recherche */}
+            <div className="mt-4 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Rechercher dans la documentation..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
           
           <nav className="p-4">
+            {searchTerm && (
+              <div className="mb-4 text-xs text-gray-500">
+                {filteredSections.length} résultat(s) pour "{searchTerm}"
+              </div>
+            )}
             <ul className="space-y-2">
-              {sections.map((section) => {
+              {filteredSections.map((section) => {
                 const Icon = section.icon;
                 return (
                   <li key={section.id}>
@@ -653,7 +862,19 @@ const Documentation: React.FC = () => {
         {/* Main content */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-4xl mx-auto p-8">
-            {sections.find(section => section.id === activeSection)?.content}
+            {filteredSections.find(section => section.id === activeSection)?.content || (
+              <div className="text-center py-12">
+                <MagnifyingGlassIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun résultat trouvé</h3>
+                <p className="text-gray-500">Essayez avec d'autres termes de recherche</p>
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Effacer la recherche
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

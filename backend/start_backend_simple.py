@@ -57,15 +57,21 @@ def test_redis():
         return {"redis": "error", "message": str(e)}
 
 if __name__ == "__main__":
+    # Obtenir l'IP locale pour accès réseau
+    import socket
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
+    
     print("🚀 Démarrage du backend Trading ETF simplifié...")
-    print("📍 Backend accessible sur: http://localhost:8000")
-    print("🔍 Health check: http://localhost:8000/health")
-    print("💾 Test DB: http://localhost:8000/test-db")
-    print("🗄️ Test Redis: http://localhost:8000/test-redis")
+    print(f"📍 Local: http://localhost:8000")
+    print(f"🌐 Réseau: http://{local_ip}:8000") 
+    print(f"🔍 Health check: http://{local_ip}:8000/health")
+    print(f"💾 Test DB: http://{local_ip}:8000/test-db")
+    print(f"🗄️ Test Redis: http://{local_ip}:8000/test-redis")
     print("")
     
     uvicorn.run(
-        app,
+        "start_backend_simple:app",
         host="0.0.0.0",
         port=8000,
         reload=True,

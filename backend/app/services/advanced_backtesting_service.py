@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass
 
 from app.services.real_market_data import get_real_market_data_service, RealMarketDataService
-from app.services.technical_analysis import TechnicalAnalysisService
+from app.services.technical_indicators import TechnicalAnalysisService
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import { cache, CacheKeys } from '../utils/cache';
 import { errorHandler } from '../utils/errorHandler';
+import { API_CONFIG } from '../config/api';
 import { 
   User, 
   UserPreferences, 
@@ -20,7 +21,7 @@ import {
   PaginationParams
 } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = API_CONFIG.BASE_URL;
 
 // Create axios instance
 const api = axios.create({
@@ -106,12 +107,12 @@ api.interceptors.response.use(
 // API functions
 export const authAPI = {
   login: async (credentials: LoginCredentials): Promise<AuthTokens> => {
-    const formData = new FormData();
+    const formData = new URLSearchParams();
     formData.append('username', credentials.email);
     formData.append('password', credentials.password);
     
     const response = await api.post('/auth/login', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
     return response.data;
   },

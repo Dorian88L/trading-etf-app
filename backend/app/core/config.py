@@ -48,11 +48,11 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", 
-        "postgresql://trading_user:trading_password@localhost:5434/trading_etf"
+        "postgresql://trading_user:trading_password@localhost:5433/trading_etf"
     )
     
     # Redis
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6381")
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6380")
     
     # Celery
     CELERY_BROKER_URL: str = REDIS_URL

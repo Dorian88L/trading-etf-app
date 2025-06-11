@@ -1,0 +1,93 @@
+# Multi-stage Dockerfile sécurisé pour le frontend - Trading ETF
+# Stage 1: Build
+FROM node:18-alpine AS build
+
+# Métadonnées
+LABEL stage="build"
+
+# Variables d'environnement pour le build
+ENV NODE_ENV=production \
+    GENERATE_SOURCEMAP=false \
+    DISABLE_ESLINT_PLUGIN=true
+
+# Créer un utilisateur non-root
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+# Installer les dépendances système nécessaires
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Copier les fichiers de dépendances
+COPY package*.json ./
+
+# Nettoyer le cache npm et installer les dépendances
+RUN npm ci --only=production --no-audit --no-fund && \
+    npm cache clean --force
+
+# Copier le code source
+COPY . .
+
+# Changer le propriétaire des fichiers
+RUN chown -R nextjs:nodejs /app
+USER nextjs
+
+# Build de l'application
+RUN npm run build
+
+# Stage 2: Production
+FROM nginx:1.24-alpine AS production
+
+# Métadonnées
+LABEL maintainer="Trading ETF Team"
+LABEL version="1.0.0"
+LABEL description="Frontend sécurisé pour l'application Trading ETF"
+
+# Installer des outils de sécurité
+RUN apk add --no-cache \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+# Créer un utilisateur non-root pour nginx
+RUN addgroup -g 1001 -S nginx && \
+    adduser -S nginx -u 1001 -G nginx
+
+# Copier la configuration nginx sécurisée
+COPY nginx.production.conf /etc/nginx/nginx.conf
+
+# Copier les certificats SSL (à remplacer par vos vrais certificats)
+COPY ssl/ /etc/nginx/ssl/
+
+# Copier les fichiers buildés depuis le stage précédent
+COPY --from=build --chown=nginx:nginx /app/build /usr/share/nginx/html
+
+# Créer les répertoires de logs avec bonnes permissions
+RUN mkdir -p /var/log/nginx /var/cache/nginx /var/run && \
+    chown -R nginx:nginx /var/log/nginx /var/cache/nginx /var/run /usr/share/nginx/html && \
+    chmod -R 755 /usr/share/nginx/html && \
+    chmod 700 /var/log/nginx
+
+# Supprimer les fichiers sensibles
+RUN find /usr/share/nginx/html -name "*.map" -delete && \
+    rm -f /usr/share/nginx/html/static/js/*.map /usr/share/nginx/html/static/css/*.map
+
+# Security headers et configuration
+RUN echo 'server_tokens off;' >> /etc/nginx/conf.d/security.conf
+
+# Passer à l'utilisateur non-root
+USER nginx
+
+# Port non privilégié
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Script d'entrée pour les vérifications de sécurité
+COPY --chown=nginx:nginx docker-entrypoint-frontend.sh /
+RUN chmod +x /docker-entrypoint-frontend.sh
+
+ENTRYPOINT ["/docker-entrypoint-frontend.sh"]
+CMD ["nginx", "-g", "daemon off;"]

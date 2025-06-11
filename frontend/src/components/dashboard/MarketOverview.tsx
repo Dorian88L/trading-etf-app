@@ -7,6 +7,7 @@ import {
   ClockIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
+import { getApiUrl } from '../../config/api';
 
 interface MarketIndex {
   name: string;
@@ -50,7 +51,7 @@ const MarketOverview: React.FC<MarketOverviewProps> = ({
   useEffect(() => {
     const fetchSectors = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/v1/real-market/sectors');
+        const response = await fetch(`${getApiUrl('/real-market/sectors')}`);
         if (response.ok) {
           const data = await response.json();
           setSectorData(data.data || []);

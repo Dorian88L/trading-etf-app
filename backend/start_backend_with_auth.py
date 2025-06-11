@@ -43,6 +43,11 @@ class User(BaseModel):
     full_name: Optional[str] = None
     is_active: bool = True
 
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    full_name: Optional[str] = None
+
 # Application FastAPI
 app = FastAPI(
     title="Trading ETF API",
@@ -53,7 +58,7 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["*"],  # Autorise toutes les origines pour le dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -96,6 +101,33 @@ def get_user_from_db(email: str):
         return None
     except Exception as e:
         print(f"Database error: {e}")
+        return None
+
+def create_user_in_db(email: str, hashed_password: str, full_name: str = None):
+    try:
+        import uuid
+        user_id = str(uuid.uuid4())
+        
+        conn = psycopg2.connect(**DATABASE_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO users (id, email, hashed_password, full_name, is_active, is_verified, created_at, updated_at) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            (user_id, email, hashed_password, full_name, True, True, datetime.utcnow(), datetime.utcnow())
+        )
+        created_user_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return {
+            "id": str(created_user_id),
+            "email": email,
+            "full_name": full_name,
+            "is_active": True
+        }
+    except Exception as e:
+        print(f"Database error creating user: {e}")
         return None
 
 # Endpoints
@@ -151,6 +183,42 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
         "access_token": access_token,
         "refresh_token": access_token,  # Simplified
         "token_type": "bearer"
+    }
+
+@app.post("/api/v1/auth/register")
+def register(user_data: UserCreate):
+    """Endpoint d'inscription"""
+    print(f"Tentative d'inscription pour: {user_data.email}")
+    
+    # Vérifier si l'utilisateur existe déjà
+    existing_user = get_user_from_db(user_data.email)
+    if existing_user:
+        print("Utilisateur existe déjà")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email déjà enregistré"
+        )
+    
+    # Hasher le mot de passe
+    hashed_password = pwd_context.hash(user_data.password)
+    
+    # Créer l'utilisateur
+    new_user = create_user_in_db(user_data.email, hashed_password, user_data.full_name)
+    
+    if not new_user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur lors de la création de l'utilisateur"
+        )
+    
+    print(f"Inscription réussie pour: {new_user['email']}")
+    
+    return {
+        "id": new_user["id"],
+        "email": new_user["email"],
+        "full_name": new_user["full_name"],
+        "is_active": new_user["is_active"],
+        "is_verified": True
     }
 
 @app.get("/api/v1/user/profile")
@@ -273,6 +341,98 @@ def get_market_indices():
     
     return indices
 
+@app.get("/api/v1/real-market/real-etfs")
+def get_real_etfs():
+    """Récupère les ETFs en temps réel"""
+    import random
+    from datetime import datetime
+    
+    etfs = [
+        {
+            'isin': 'FR0010296061',
+            'symbol': 'CAC.PA',
+            'name': 'Lyxor CAC 40 UCITS ETF',
+            'sector': 'Large Cap France',
+            'currency': 'EUR',
+            'current_price': round(random.uniform(45, 55), 2),
+            'change': round(random.uniform(-2, 2), 2),
+            'change_percent': round(random.uniform(-4, 4), 2),
+            'volume': random.randint(10000, 100000),
+            'market_cap': '1.2B',
+            'last_update': datetime.now().isoformat()
+        },
+        {
+            'isin': 'IE00B4L5Y983',
+            'symbol': 'IWDA.AS',
+            'name': 'iShares Core MSCI World UCITS ETF',
+            'sector': 'Global Developed',
+            'currency': 'USD',
+            'current_price': round(random.uniform(75, 85), 2),
+            'change': round(random.uniform(-3, 3), 2),
+            'change_percent': round(random.uniform(-4, 4), 2),
+            'volume': random.randint(50000, 200000),
+            'market_cap': '15.8B',
+            'last_update': datetime.now().isoformat()
+        },
+        {
+            'isin': 'LU0290358497',
+            'symbol': 'XESX.DE',
+            'name': 'Xtrackers EURO STOXX 50 UCITS ETF',
+            'sector': 'Europe Large Cap',
+            'currency': 'EUR',
+            'current_price': round(random.uniform(65, 75), 2),
+            'change': round(random.uniform(-2, 2), 2),
+            'change_percent': round(random.uniform(-3, 3), 2),
+            'volume': random.randint(30000, 150000),
+            'market_cap': '3.4B',
+            'last_update': datetime.now().isoformat()
+        },
+        {
+            'isin': 'IE00B4L5YC18',
+            'symbol': 'CSPX.L',
+            'name': 'iShares Core S&P 500 UCITS ETF',
+            'sector': 'US Large Cap',
+            'currency': 'USD',
+            'current_price': round(random.uniform(380, 420), 2),
+            'change': round(random.uniform(-5, 5), 2),
+            'change_percent': round(random.uniform(-2, 2), 2),
+            'volume': random.randint(100000, 300000),
+            'market_cap': '35.6B',
+            'last_update': datetime.now().isoformat()
+        },
+        {
+            'isin': 'IE00BKBF6H24',
+            'symbol': 'VWCE.DE',
+            'name': 'Vanguard FTSE All-World UCITS ETF',
+            'sector': 'Global All Cap',
+            'currency': 'USD',
+            'current_price': round(random.uniform(95, 105), 2),
+            'change': round(random.uniform(-3, 3), 2),
+            'change_percent': round(random.uniform(-3, 3), 2),
+            'volume': random.randint(80000, 250000),
+            'market_cap': '8.9B',
+            'last_update': datetime.now().isoformat()
+        }
+    ]
+    
+    return {'data': etfs, 'count': len(etfs)}
+
+@app.get("/api/v1/real-market/sectors")
+def get_market_sectors():
+    """Récupère les secteurs du marché"""
+    import random
+    
+    sectors = [
+        {'name': 'Technology', 'change_percent': round(random.uniform(-2, 4), 2), 'market_cap': '12.4T'},
+        {'name': 'Healthcare', 'change_percent': round(random.uniform(-1, 3), 2), 'market_cap': '6.8T'},
+        {'name': 'Finance', 'change_percent': round(random.uniform(-3, 2), 2), 'market_cap': '8.2T'},
+        {'name': 'Energy', 'change_percent': round(random.uniform(-4, 6), 2), 'market_cap': '4.1T'},
+        {'name': 'Consumer Goods', 'change_percent': round(random.uniform(-2, 3), 2), 'market_cap': '5.6T'},
+        {'name': 'Industrial', 'change_percent': round(random.uniform(-2, 4), 2), 'market_cap': '4.9T'}
+    ]
+    
+    return {'data': sectors}
+
 @app.get("/test-db")
 def test_database():
     try:
@@ -287,16 +447,23 @@ def test_database():
         return {"database": "error", "message": str(e)}
 
 if __name__ == "__main__":
+    # Obtenir l'IP locale pour accès réseau
+    import socket
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
+    
     print("🚀 Démarrage du backend Trading ETF avec authentification...")
-    print("📍 Backend accessible sur: http://localhost:8000")
-    print("🔐 Login endpoint: http://localhost:8000/api/v1/auth/login")
-    print("👤 Test user: test@trading.com / test123")
+    print(f"📍 Local: http://localhost:8000")
+    print(f"🌐 Réseau WiFi: http://{local_ip}:8000")
+    print(f"🔐 Login: POST http://{local_ip}:8000/api/v1/auth/login")
+    print(f"👤 Test user: test@trading.com / test123")
+    print(f"📚 Documentation: http://{local_ip}:8000/docs")
     print("")
     
     uvicorn.run(
-        app,
-        host="0.0.0.0",
+        "start_backend_with_auth:app",
+        host="127.0.0.1",  # Écoute seulement sur localhost
         port=8000,
-        reload=False,
+        reload=True,
         log_level="info"
     )

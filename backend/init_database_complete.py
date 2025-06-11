@@ -23,7 +23,7 @@ from app.models.notification import PushSubscription
 from app.models.user_preferences import UserPreferences
 
 # Configuration
-DATABASE_URL = "postgresql://postgres:password@localhost:5434/trading_etf"
+DATABASE_URL = "postgresql://trading_user:trading_password@localhost:5433/trading_etf"
 
 def init_database():
     """Initialise la base de données avec les tables et données"""

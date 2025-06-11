@@ -13,6 +13,7 @@ import AdvancedChart from '../components/charts/AdvancedChart';
 import RealTimeNotification from '../components/RealTimeNotification';
 import RealTimeMarketData from '../components/RealTimeMarketData';
 import SmartSearch from '../components/SmartSearch';
+import { getApiUrl } from '../config/api';
 import { marketAPI } from '../services/api';
 
 interface DashboardStats {
@@ -129,7 +130,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchSignals = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/v1/signals/advanced');
+        const response = await fetch(getApiUrl('/signals/advanced'));
         if (response.ok) {
           const data = await response.json();
           setAdvancedSignals(data.data || []);
@@ -150,7 +151,7 @@ const Dashboard: React.FC = () => {
       if (marketData.length > 0) {
         try {
           const firstEtf = marketData[0];
-          const response = await fetch(`http://localhost:8000/api/v1/real-market/real-market-data/${firstEtf.symbol}?period=1W`);
+          const response = await fetch(getApiUrl(`/real-market/real-market-data/${firstEtf.symbol}?period=1W`));
           if (response.ok) {
             const data = await response.json();
             setChartData(data.data || []);
