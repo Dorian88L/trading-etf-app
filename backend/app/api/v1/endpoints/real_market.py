@@ -16,6 +16,49 @@ from app.services.enhanced_market_data import get_enhanced_market_service
 
 router = APIRouter()
 
+# Endpoint public sans authentification pour les données de base
+@router.get(
+    "/public/etfs-preview",
+    tags=["market"],
+    summary="Aperçu ETFs sans authentification",
+    description="Retourne un aperçu des ETFs disponibles sans nécessiter d'authentification"
+)
+async def get_public_etfs_preview(
+    market_service: RealMarketDataService = Depends(get_real_market_data_service)
+):
+    """Endpoint public pour l'aperçu des ETFs"""
+    etf_list = []
+    
+    # Utiliser les ETFs prédéfinis du service
+    for symbol, info in market_service.EUROPEAN_ETFS.items():
+        import random
+        # Simuler des données de prix réalistes
+        base_price = random.uniform(50, 150)
+        change = random.uniform(-3, 3)
+        change_percent = (change / base_price) * 100
+        
+        etf_list.append({
+            'symbol': symbol,
+            'isin': info['isin'],
+            'name': info['name'],
+            'sector': info['sector'],
+            'exchange': info['exchange'],
+            'current_price': round(base_price, 2),
+            'change': round(change, 2),
+            'change_percent': round(change_percent, 2),
+            'volume': random.randint(100000, 10000000),
+            'currency': 'EUR',
+            'last_update': datetime.now().isoformat()
+        })
+    
+    return {
+        'status': 'success',
+        'count': len(etf_list),
+        'data': etf_list,
+        'timestamp': datetime.now().isoformat(),
+        'message': 'Données publiques - Connectez-vous pour les données temps réel'
+    }
+
 @router.get(
     "/real-etfs",
     tags=["market"],

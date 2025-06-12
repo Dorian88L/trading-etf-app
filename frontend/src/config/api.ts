@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_API_URL || 'https://api.investeclaire.fr',
+  BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:8443',
   ENDPOINTS: {
     // Real Market endpoints (correct paths with /api prefix)
     REAL_ETFS: '/api/v1/real-market/real-etfs',

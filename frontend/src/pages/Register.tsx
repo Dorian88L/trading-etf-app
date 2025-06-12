@@ -22,19 +22,31 @@ const Register: React.FC = () => {
       return;
     }
 
+
     try {
+      
+      // Utiliser la configuration API standard
       await authAPI.register({
         email: formData.email,
         password: formData.password,
         full_name: formData.fullName
       });
+      
       setMessage('✅ Inscription réussie ! Vous pouvez maintenant vous connecter.');
+      
     } catch (error: any) {
-      console.error('Registration error:', error);
-      setMessage(`❌ Erreur: ${error.response?.data?.detail || 'Erreur de connexion au serveur'}`);
-    } finally {
-      setIsLoading(false);
+      
+      if (error.response?.status === 400 && error.response?.data?.detail === 'Email already registered') {
+        setMessage('❌ Cette adresse email est déjà utilisée.');
+      } else if (error.response?.status) {
+        setMessage(`❌ Erreur serveur: ${error.response.data?.detail || 'Erreur inconnue'}`);
+      } else {
+        setMessage('❌ Erreur de connexion au serveur. Vérifiez votre connexion internet.');
+      }
     }
+    
+    
+    setIsLoading(false);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,7 +144,7 @@ const Register: React.FC = () => {
             </button>
           </div>
 
-          <div className="text-center">
+          <div className="text-center space-y-2">
             <a href="/login" className="text-indigo-600 hover:text-indigo-500">
               Déjà un compte ? Se connecter
             </a>

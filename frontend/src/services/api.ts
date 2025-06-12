@@ -23,13 +23,10 @@ import {
 
 const API_BASE_URL = API_CONFIG.BASE_URL;
 
-// Debug: Afficher l'URL API utilisée
-console.log('🔧 DEBUG API_BASE_URL:', API_BASE_URL);
-console.log('🔧 DEBUG Full API URL:', `${API_BASE_URL}/api/v1`);
 
 // Create axios instance
 const api = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1`,
+  baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -122,18 +119,8 @@ export const authAPI = {
   },
   
   register: async (userData: RegisterData): Promise<User> => {
-    console.log('🔧 DEBUG Register request:', {
-      url: `${API_BASE_URL}/api/v1/auth/register`,
-      data: userData
-    });
-    try {
-      const response = await api.post('/auth/register', userData);
-      console.log('🔧 DEBUG Register success:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('🔧 DEBUG Register error:', error);
-      throw error;
-    }
+    const response = await api.post('/auth/register', userData);
+    return response.data;
   },
   
   refreshToken: async (refreshToken: string): Promise<AuthTokens> => {
@@ -194,12 +181,26 @@ export const marketAPI = {
       }
     }
     
-    const response = await api.get('/real-market/real-etfs', { params: symbols ? { symbols } : {} });
-    
-    // Mettre en cache pour 30 secondes
-    cache.set(cacheKey, response.data, 30);
-    
-    return response.data;
+    try {
+      // Essayer d'abord l'endpoint avec authentification
+      const response = await api.get('/real-market/real-etfs', { params: symbols ? { symbols } : {} });
+      
+      // Mettre en cache pour 30 secondes
+      cache.set(cacheKey, response.data, 30);
+      
+      return response.data;
+    } catch (error: any) {
+      // Si échec d'authentification, utiliser l'endpoint public
+      if (error.response?.status === 401) {
+        console.log('🔄 Fallback vers l\'endpoint public etfs-preview');
+        const fallbackResponse = await api.get('/real-market/public/etfs-preview');
+        
+        // Mettre en cache pour 30 secondes
+        cache.set(cacheKey, fallbackResponse.data, 30);
+        return fallbackResponse.data;
+      }
+      throw error;
+    }
   },
   
   getETF: async (isin: string): Promise<ETF> => {
@@ -547,8 +548,9 @@ export const realtimeMarketAPI = {
 
   // WebSocket URL helper
   getWebSocketUrl: (): string => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}/api/v1/realtime-market/ws/market-data`;
+    const protocol = 'ws:';
+    const apiHost = API_CONFIG.BASE_URL.replace('http://', '').replace('https://', '');
+    return `${protocol}//${apiHost}/ws/market-data`;
   }
 };
 

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug API URL</title>
+</head>
+<body>
+    <h1>Debug: Quelle URL API le frontend utilise-t-il ?</h1>
+    
+    <div id="config-info"></div>
+    
+    <h2>Test simple de connexion</h2>
+    <button onclick="testAPI()">Tester l'API</button>
+    <div id="result"></div>
+    
+    <script>
+        // Afficher les informations de configuration
+        document.getElementById('config-info').innerHTML = `
+            <p><strong>URL actuelle:</strong> ${window.location.href}</p>
+            <p><strong>Origin:</strong> ${window.location.origin}</p>
+            <p><strong>Host:</strong> ${window.location.host}</p>
+        `;
+        
+        async function testAPI() {
+            const result = document.getElementById('result');
+            
+            // URLs à tester
+            const urlsToTest = [
+                'https://api.investeclaire.fr/health',
+                'http://217.154.120.215:8000/health',
+                'http://localhost:8000/health',
+                'http://127.0.0.1:8000/health'
+            ];
+            
+            result.innerHTML = '<p>Test en cours...</p>';
+            
+            for (const url of urlsToTest) {
+                try {
+                    console.log(`🔧 Testing: ${url}`);
+                    const response = await fetch(url);
+                    const data = await response.text();
+                    
+                    result.innerHTML += `
+                        <div style="border: 1px solid green; margin: 5px; padding: 10px;">
+                            <strong>✅ ${url}</strong><br>
+                            Status: ${response.status}<br>
+                            Response: ${data}
+                        </div>
+                    `;
+                } catch (error) {
+                    console.error(`❌ Failed: ${url}`, error);
+                    result.innerHTML += `
+                        <div style="border: 1px solid red; margin: 5px; padding: 10px;">
+                            <strong>❌ ${url}</strong><br>
+                            Error: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+            
+            // Test inscription
+            try {
+                const signupUrl = 'https://api.investeclaire.fr/api/v1/auth/register';
+                console.log(`🔧 Testing signup: ${signupUrl}`);
+                
+                const response = await fetch(signupUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': window.location.origin
+                    },
+                    body: JSON.stringify({
+                        email: 'testdebug@example.com',
+                        password: 'test123',
+                        full_name: 'Test Debug'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    result.innerHTML += `
+                        <div style="border: 2px solid green; margin: 5px; padding: 10px; background: #e6ffe6;">
+                            <strong>✅ SIGNUP TEST SUCCESSFUL!</strong><br>
+                            URL: ${signupUrl}<br>
+                            Response: ${JSON.stringify(data, null, 2)}
+                        </div>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    result.innerHTML += `
+                        <div style="border: 2px solid orange; margin: 5px; padding: 10px; background: #fff3cd;">
+                            <strong>⚠️ SIGNUP ERROR ${response.status}</strong><br>
+                            URL: ${signupUrl}<br>
+                            Error: ${errorText}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML += `
+                    <div style="border: 2px solid red; margin: 5px; padding: 10px; background: #ffe6e6;">
+                        <strong>❌ SIGNUP NETWORK ERROR</strong><br>
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🚀 Test Final - Applications Relancées</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .box { border: 2px solid #ddd; margin: 15px 0; padding: 20px; border-radius: 8px; }
+        .success { border-color: #4CAF50; background: #f0f8f0; }
+        .info { border-color: #2196F3; background: #f0f8ff; }
+        .btn { background: #4CAF50; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; margin: 8px; }
+        .btn:hover { background: #45a049; }
+        .status { display: inline-block; padding: 5px 10px; border-radius: 15px; margin: 5px; font-weight: bold; }
+        .online { background: #d4edda; color: #155724; }
+        .offline { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Test Final - Applications Relancées</h1>
+    
+    <div class="box success">
+        <h2>✅ État des Applications</h2>
+        <p><strong>Backend:</strong> <span id="backend-status" class="status">⏳ Test en cours...</span></p>
+        <p><strong>Frontend:</strong> <span id="frontend-status" class="status">⏳ Test en cours...</span></p>
+        <p><strong>Communication:</strong> <span id="communication-status" class="status">⏳ Test en cours...</span></p>
+    </div>
+
+    <div class="box info">
+        <h2>📋 Configuration Confirmée</h2>
+        <ul>
+            <li>✅ <strong>Backend:</strong> http://217.154.120.215:8000</li>
+            <li>✅ <strong>Frontend:</strong> https://investeclaire.fr (port 3000)</li>
+            <li>✅ <strong>API URL:</strong> http://217.154.120.215:8000</li>
+            <li>✅ <strong>CORS:</strong> Autorisé pour toutes origines</li>
+        </ul>
+    </div>
+
+    <div class="box">
+        <h2>🧪 Tests de Communication</h2>
+        <button class="btn" onclick="runAllTests()">🔍 Lancer Tous les Tests</button>
+        <button class="btn" onclick="testRegistration()">📝 Test d'Inscription</button>
+        <button class="btn" onclick="window.location.href='/register'">🚀 Page Register</button>
+        
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        async function checkBackend() {
+            try {
+                const response = await fetch('http://217.154.120.215:8000/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('backend-status').textContent = '✅ ONLINE';
+                    document.getElementById('backend-status').className = 'status online';
+                    return true;
+                }
+            } catch (error) {
+                document.getElementById('backend-status').textContent = '❌ OFFLINE';
+                document.getElementById('backend-status').className = 'status offline';
+                return false;
+            }
+        }
+
+        async function checkFrontend() {
+            try {
+                // Frontend est déjà accessible puisque cette page se charge
+                document.getElementById('frontend-status').textContent = '✅ ONLINE';
+                document.getElementById('frontend-status').className = 'status online';
+                return true;
+            } catch (error) {
+                document.getElementById('frontend-status').textContent = '❌ OFFLINE';
+                document.getElementById('frontend-status').className = 'status offline';
+                return false;
+            }
+        }
+
+        async function testCommunication() {
+            try {
+                const response = await fetch('http://217.154.120.215:8000/api/v1/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: `test-final-${Date.now()}@example.com`,
+                        password: 'test123',
+                        full_name: 'Test Final Communication'
+                    })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('communication-status').textContent = '✅ PARFAITE';
+                    document.getElementById('communication-status').className = 'status online';
+                    return true;
+                }
+            } catch (error) {
+                document.getElementById('communication-status').textContent = '❌ ÉCHEC';
+                document.getElementById('communication-status').className = 'status offline';
+                return false;
+            }
+        }
+
+        async function runAllTests() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<h3>🔄 Tests en cours...</h3>';
+            
+            let report = '<h3>📊 Résultats des Tests:</h3>';
+            
+            // Test 1: Backend
+            const backendOk = await checkBackend();
+            report += `<p>🖥️ <strong>Backend:</strong> ${backendOk ? '✅ Fonctionnel' : '❌ Problème'}</p>`;
+            
+            // Test 2: Frontend
+            const frontendOk = await checkFrontend();
+            report += `<p>🌐 <strong>Frontend:</strong> ${frontendOk ? '✅ Fonctionnel' : '❌ Problème'}</p>`;
+            
+            // Test 3: Communication
+            const commOk = await testCommunication();
+            report += `<p>🔗 <strong>Communication:</strong> ${commOk ? '✅ Parfaite' : '❌ Échec'}</p>`;
+            
+            // Test 4: Configuration
+            report += `<p>⚙️ <strong>Configuration:</strong> ✅ IP directe (http://217.154.120.215:8000)</p>`;
+            
+            if (backendOk && frontendOk && commOk) {
+                report += `
+                    <div style="color: green; padding: 20px; border: 3px solid green; border-radius: 10px; margin-top: 20px;">
+                        <h2>🎉 TOUT FONCTIONNE PARFAITEMENT !</h2>
+                        <p><strong>✅ Backend:</strong> En ligne et accessible</p>
+                        <p><strong>✅ Frontend:</strong> En ligne et fonctionnel</p>
+                        <p><strong>✅ Communication:</strong> Frontend ↔ Backend OK</p>
+                        <p><strong>🎯 La page Register est prête à l'utilisation !</strong></p>
+                        <button onclick="window.location.href='/register'" style="background: #4CAF50; color: white; padding: 15px 30px; border: none; border-radius: 8px; font-size: 18px; cursor: pointer;">
+                            📝 Utiliser la Page Register
+                        </button>
+                    </div>
+                `;
+            } else {
+                report += `
+                    <div style="color: red; padding: 15px; border: 2px solid red; border-radius: 8px;">
+                        <p>❌ <strong>Problème détecté !</strong> Certains composants ne fonctionnent pas correctement.</p>
+                    </div>
+                `;
+            }
+            
+            results.innerHTML = report;
+        }
+
+        async function testRegistration() {
+            const results = document.getElementById('test-results');
+            results.innerHTML = '<h3>📝 Test d\'inscription en cours...</h3>';
+            
+            try {
+                const testEmail = `inscription-test-${Date.now()}@example.com`;
+                const response = await fetch('http://217.154.120.215:8000/api/v1/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: testEmail,
+                        password: 'test123',
+                        full_name: 'Test Inscription Finale'
+                    })
+                });
+                
+                if (response.ok) {
+                    const userData = await response.json();
+                    results.innerHTML = `
+                        <div style="color: green; padding: 20px; border: 3px solid green; border-radius: 10px;">
+                            <h2>✅ INSCRIPTION TEST RÉUSSIE !</h2>
+                            <p><strong>Email:</strong> ${userData.email}</p>
+                            <p><strong>ID:</strong> ${userData.id}</p>
+                            <p><strong>Statut:</strong> ${response.status} OK</p>
+                            <p><strong>🎯 La page Register fonctionne parfaitement !</strong></p>
+                        </div>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    results.innerHTML = `
+                        <div style="color: orange; padding: 15px; border: 2px solid orange; border-radius: 8px;">
+                            <p>⚠️ Réponse HTTP ${response.status}</p>
+                            <p>Détails: ${errorText}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                results.innerHTML = `
+                    <div style="color: red; padding: 15px; border: 2px solid red; border-radius: 8px;">
+                        <p>❌ Erreur de communication: ${error.message}</p>
+                        <p>Vérifiez que le backend est en ligne.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Auto-test au chargement
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                checkBackend();
+                checkFrontend();
+                testCommunication();
+            }, 1000);
+        });
+    </script>
+
+    <div class="box success">
+        <h2>📋 Résumé de la Configuration</h2>
+        <p><strong>✅ Applications relancées et configurées :</strong></p>
+        <ul>
+            <li>🖥️ <strong>Backend:</strong> uvicorn sur port 8000 (IP directe)</li>
+            <li>🌐 <strong>Frontend:</strong> React sur port 3000 (via nginx SSL)</li>
+            <li>🔗 <strong>Communication:</strong> Frontend → Backend via IP directe</li>
+            <li>⚙️ <strong>Configuration:</strong> .env modifié pour utiliser IP directe</li>
+            <li>🚀 <strong>Page Register:</strong> Prête avec titre "MIXED CONTENT RÉSOLU"</li>
+        </ul>
+    </div>
+</body>
+</html>

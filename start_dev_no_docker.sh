@@ -1,9 +1,18 @@
 #!/bin/bash
 
 # Script pour démarrer l'application sans Docker
+# ATTENTION: Ce script nécessite des privilèges sudo pour le port 80
 
 echo "🚀 Démarrage de l'application Trading ETF (sans Docker)"
 echo "====================================================="
+
+# Vérifier les privilèges sudo
+echo "🔐 Vérification des privilèges sudo..."
+if ! sudo -n true 2>/dev/null; then
+    echo "⚠️ Ce script nécessite des privilèges sudo pour utiliser le port 80"
+    echo "Veuillez saisir votre mot de passe sudo si demandé"
+    sudo -v || exit 1
+fi
 
 # Créer dossier logs
 mkdir -p logs
@@ -32,11 +41,11 @@ export DATABASE_URL="postgresql://trading_user:trading_password@localhost:5432/t
 export REDIS_URL="redis://localhost:6379"
 export ENVIRONMENT="development"
 
-# Démarrer le backend sur port 8000 (sans SSL pour être derrière nginx)
+# Démarrer le backend sur port 8443
 echo "🖥️ Démarrage du backend FastAPI..."
 cd backend
 source venv/bin/activate 2>/dev/null || echo "⚠️ Environnement virtuel non trouvé"
-nohup uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload > logs/backend.log 2>&1 &
+nohup uvicorn app.main:app --host 0.0.0.0 --port 8443 --reload > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID > logs/backend.pid
 cd ..
@@ -44,8 +53,8 @@ cd ..
 # Attendre que le backend soit prêt
 echo "⏳ Attente du backend (30s max)..."
 for i in {1..30}; do
-    if curl -s http://localhost:8000/health >/dev/null 2>&1; then
-        echo "✅ Backend prêt sur http://localhost:8000"
+    if curl -s http://localhost:8443/health >/dev/null 2>&1; then
+        echo "✅ Backend prêt sur http://localhost:8443"
         break
     fi
     if [ $i -eq 30 ]; then
@@ -55,10 +64,10 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Démarrer le frontend
+# Démarrer le frontend sur port 80
 echo "🌐 Démarrage du frontend React..."
 cd frontend
-nohup npm start > ../logs/frontend.log 2>&1 &
+sudo PORT=80 HOST=0.0.0.0 nohup npm start > ../logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo $FRONTEND_PID > ../logs/frontend.pid
 cd ..
@@ -66,8 +75,8 @@ cd ..
 # Attendre que le frontend soit prêt
 echo "⏳ Attente du frontend (60s max)..."
 for i in {1..60}; do
-    if curl -s http://localhost:3000 >/dev/null 2>&1; then
-        echo "✅ Frontend prêt sur http://localhost:3000"
+    if curl -s http://localhost:80 >/dev/null 2>&1; then
+        echo "✅ Frontend prêt sur http://localhost:80"
         break
     fi
     if [ $i -eq 60 ]; then
@@ -78,13 +87,24 @@ for i in {1..60}; do
 done
 
 echo ""
+# Obtenir l'IP publique
+PUBLIC_IP=$(curl -s ifconfig.me 2>/dev/null || echo "IP_PUBLIQUE_NON_DETECTEE")
+
 echo "🎉 Application démarrée avec succès!"
 echo "======================================"
-echo "Backend:  http://localhost:8000"
-echo "Frontend: http://localhost:3000"
-echo "API SSL:  https://api.investeclaire.fr (nécessite configuration nginx)"
+echo "Accès local:"
+echo "  Backend:  http://localhost:8443"
+echo "  Frontend: http://localhost:80"
+echo ""
+echo "Accès externe (depuis Internet):"
+echo "  Backend:  http://${PUBLIC_IP}:8443"
+echo "  Frontend: http://${PUBLIC_IP}:80"
+echo ""
+echo "⚠️  IMPORTANT: Assurez-vous que les ports 80 et 8443 sont ouverts dans votre firewall"
+echo "    - sudo ufw allow 80"
+echo "    - sudo ufw allow 8443"
 echo ""
 echo "PIDs sauvegardés dans logs/"
 echo "Logs disponibles dans logs/"
 echo ""
-echo "Pour arrêter: ./stop_dev_simple.sh"
+echo "Pour arrêter: ./stop_dev_no_docker.sh"
