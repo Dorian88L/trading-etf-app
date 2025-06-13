@@ -13,7 +13,7 @@ import AdvancedChart from '../components/charts/AdvancedChart';
 import RealTimeNotification from '../components/RealTimeNotification';
 import RealTimeMarketData from '../components/RealTimeMarketData';
 import SmartSearch from '../components/SmartSearch';
-import { getApiUrl } from '../config/api';
+import { getApiUrl, API_CONFIG } from '../config/api';
 import { marketAPI } from '../services/api';
 
 interface DashboardStats {
@@ -48,32 +48,27 @@ const Dashboard: React.FC = () => {
 
   const fetchRealData = async () => {
     try {
-      // Récupérer les données ETF et générer des stats simulées
+      // Récupérer les données ETF réelles
       const etfsResponse = await marketAPI.getRealETFs();
       
-      // Simuler des stats de dashboard basées sur les données ETF
-      const etfCount = etfsResponse.data?.length || 0;
-      const avgChange = etfCount > 0 ? 
-        (etfsResponse.data?.reduce((sum: number, etf: any) => sum + (etf.change_percent || 0), 0) / etfCount) : 0;
-      
-      const statsResponse = {
-        status: 'success',
-        data: {
-          market_overview: {
-            total_etfs: etfCount,
-            avg_change_percent: avgChange,
-            positive_etfs: etfsResponse.data?.filter((etf: any) => (etf.change_percent || 0) > 0).length || 0,
-            negative_etfs: etfsResponse.data?.filter((etf: any) => (etf.change_percent || 0) < 0).length || 0
-          },
-          alerts_count: Math.floor(Math.random() * 5),
-          last_update: new Date().toISOString()
+      // Récupérer les stats du dashboard depuis l'API
+      try {
+        const statsResponse = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.DASHBOARD_STATS), {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setDashboardStats(statsData.data);
         }
-      };
+      } catch (error) {
+        console.log('Dashboard stats API not available');
+      }
       
       setMarketData(etfsResponse.data || []);
-      if (statsResponse.status === 'success') {
-        setDashboardStats(statsResponse.data);
-      }
       setLastUpdate(new Date());
     } catch (error) {
       console.error('Erreur de récupération:', error);
@@ -130,14 +125,13 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchSignals = async () => {
       try {
-        const response = await fetch(getApiUrl('/signals/advanced'));
+        const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.ADVANCED_SIGNALS));
         if (response.ok) {
           const data = await response.json();
           setAdvancedSignals(data.data || []);
         }
       } catch (error) {
-        console.log('🔄 Signaux non disponibles sans authentification');
-        // Utiliser des signaux factices pour l'aperçu
+        // Signaux non disponibles
         setAdvancedSignals([]);
       }
     };
@@ -153,7 +147,7 @@ const Dashboard: React.FC = () => {
       if (marketData.length > 0) {
         try {
           const firstEtf = marketData[0];
-          const response = await fetch(getApiUrl(`/real-market/real-market-data/${firstEtf.symbol}?period=1W`));
+          const response = await fetch(getApiUrl(`${API_CONFIG.ENDPOINTS.HISTORICAL}/${firstEtf.symbol}?period=1W`));
           if (response.ok) {
             const data = await response.json();
             setChartData(data.data || []);

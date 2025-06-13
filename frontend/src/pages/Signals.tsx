@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { signalsAPI } from '../services/api';
+import { getApiUrl, API_CONFIG } from '../config/api';
 import useAdvancedNotifications from '../hooks/useAdvancedNotifications';
 
 interface Signal {
@@ -62,61 +63,6 @@ const Signals: React.FC = () => {
     pushNotifications: true
   });
 
-  // Mock data generation
-  const generateMockSignals = (): Signal[] => {
-    const symbols = ['SPY', 'QQQ', 'VTI', 'VEA', 'VWO', 'IWM', 'TLT', 'GLD', 'USO', 'FXI'];
-    const names = [
-      'SPDR S&P 500 ETF',
-      'Invesco QQQ Trust',
-      'Vanguard Total Stock Market',
-      'Vanguard FTSE Developed Markets',
-      'Vanguard Emerging Markets',
-      'iShares Russell 2000',
-      'iShares 20+ Year Treasury',
-      'SPDR Gold Trust',
-      'United States Oil Fund',
-      'iShares China Large-Cap'
-    ];
-    
-    const strategies = ['RSI Divergence', 'MACD Cross', 'Bollinger Breakout', 'Volume Surge', 'Moving Average', 'Support/Resistance'];
-    const sectors = ['Diversifié', 'Technologie', 'International', 'Obligataire', 'Matières Premières'];
-    const timeframes: Array<'1H' | '4H' | '1D' | '1W'> = ['1H', '4H', '1D', '1W'];
-    const signalTypes: Array<'BUY' | 'SELL' | 'HOLD'> = ['BUY', 'SELL', 'HOLD'];
-
-    return symbols.map((symbol, index) => {
-      const currentPrice = 100 + Math.random() * 400;
-      const signalType = signalTypes[Math.floor(Math.random() * signalTypes.length)];
-      const confidence = 50 + Math.random() * 50;
-      
-      return {
-        id: `signal-${index + 1}`,
-        symbol,
-        name: names[index],
-        signalType,
-        confidence: Math.round(confidence),
-        currentPrice: Math.round(currentPrice * 100) / 100,
-        targetPrice: signalType === 'BUY' 
-          ? Math.round((currentPrice * (1 + 0.05 + Math.random() * 0.15)) * 100) / 100
-          : Math.round((currentPrice * (1 - 0.05 - Math.random() * 0.15)) * 100) / 100,
-        stopLoss: signalType === 'BUY'
-          ? Math.round((currentPrice * (1 - 0.03 - Math.random() * 0.07)) * 100) / 100
-          : Math.round((currentPrice * (1 + 0.03 + Math.random() * 0.07)) * 100) / 100,
-        timeframe: timeframes[Math.floor(Math.random() * timeframes.length)],
-        strategy: strategies[Math.floor(Math.random() * strategies.length)],
-        createdAt: new Date(Date.now() - Math.random() * 86400000 * 7).toISOString(),
-        expiresAt: new Date(Date.now() + Math.random() * 86400000 * 30).toISOString(),
-        isActive: Math.random() > 0.2,
-        volume: Math.floor(Math.random() * 10000000) + 1000000,
-        change24h: (Math.random() - 0.5) * 10,
-        rsi: Math.round(Math.random() * 100),
-        macd: (Math.random() - 0.5) * 10,
-        technicalScore: Math.round(40 + Math.random() * 60),
-        fundamentalScore: Math.round(40 + Math.random() * 60),
-        marketCap: Math.round((Math.random() * 500 + 10) * 1000000000),
-        sector: sectors[Math.floor(Math.random() * sectors.length)]
-      };
-    });
-  };
 
   useEffect(() => {
     loadSignals();
@@ -152,7 +98,7 @@ const Signals: React.FC = () => {
           
           // Try advanced signals API
           try {
-            const response = await fetch('/api/v1/advanced-signals/signals/advanced', {
+            const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.ADVANCED_SIGNALS)}`, {
               headers: {
                 'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                 'Content-Type': 'application/json'
@@ -195,7 +141,7 @@ const Signals: React.FC = () => {
               }
             }
           } catch (advancedError) {
-            console.log('Advanced signals API not available, using mock data');
+            console.log('Advanced signals API not available');
           }
         }
       } else if (activeTab === 'history') {
@@ -216,9 +162,8 @@ const Signals: React.FC = () => {
         }
       }
       
-      // Fallback to mock data
-      const mockSignals = generateMockSignals();
-      setSignals(mockSignals);
+      // No fallback - only show real data
+      setSignals([]);
       
     } catch (err: any) {
       console.error('Error loading signals:', err);
@@ -263,13 +208,13 @@ const Signals: React.FC = () => {
       createdAt: apiSignal.created_at || new Date().toISOString(),
       expiresAt: apiSignal.expires_at || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       isActive: apiSignal.is_active !== false,
-      volume: Math.floor(Math.random() * 10000000) + 1000000,
-      change24h: (Math.random() - 0.5) * 10,
-      rsi: Math.round(Math.random() * 100),
-      macd: (Math.random() - 0.5) * 10,
-      technicalScore: apiSignal.technical_score || Math.round(40 + Math.random() * 60),
-      fundamentalScore: apiSignal.fundamental_score || Math.round(40 + Math.random() * 60),
-      marketCap: Math.round((Math.random() * 500 + 10) * 1000000000),
+      volume: apiSignal.volume || 0,
+      change24h: apiSignal.change_24h || 0,
+      rsi: apiSignal.rsi || 0,
+      macd: apiSignal.macd || 0,
+      technicalScore: apiSignal.technical_score || 0,
+      fundamentalScore: apiSignal.fundamental_score || 0,
+      marketCap: apiSignal.market_cap || 0,
       sector: apiSignal.sector || 'Diversifié'
     };
   };
@@ -289,13 +234,13 @@ const Signals: React.FC = () => {
       createdAt: advSignal.generated_at,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       isActive: true,
-      volume: Math.floor(Math.random() * 10000000) + 1000000,
-      change24h: advSignal.expected_return || (Math.random() - 0.5) * 10,
-      rsi: advSignal.indicators?.rsi || Math.round(Math.random() * 100),
-      macd: advSignal.indicators?.macd || (Math.random() - 0.5) * 10,
-      technicalScore: advSignal.technical_score,
-      fundamentalScore: Math.round(40 + Math.random() * 60),
-      marketCap: Math.round((Math.random() * 500 + 10) * 1000000000),
+      volume: advSignal.volume || 0,
+      change24h: advSignal.expected_return || 0,
+      rsi: advSignal.indicators?.rsi || 0,
+      macd: advSignal.indicators?.macd || 0,
+      technicalScore: advSignal.technical_score || 0,
+      fundamentalScore: advSignal.fundamental_score || 0,
+      marketCap: advSignal.market_cap || 0,
       sector: advSignal.sector || 'Technology'
     };
   };
@@ -920,18 +865,9 @@ const Signals: React.FC = () => {
 
               <div className="bg-gray-50 rounded-lg p-6">
                 <h4 className="font-medium text-gray-900 mb-4">📈 Statistiques des alertes</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">127</div>
-                    <div className="text-sm text-gray-600">Alertes envoyées ce mois</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">89%</div>
-                    <div className="text-sm text-gray-600">Taux de précision</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-600">3.2min</div>
-                    <div className="text-sm text-gray-600">Temps de réaction moyen</div>
+                <div className="text-center py-8">
+                  <div className="text-gray-500">
+                    Statistiques d'alertes disponibles après activation du service
                   </div>
                 </div>
               </div>

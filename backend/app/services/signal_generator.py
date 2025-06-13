@@ -470,35 +470,32 @@ class TradingSignalGenerator:
         signals.sort(key=lambda x: x.confidence, reverse=True)
         return signals[:10]  # Retourner les 10 meilleurs signaux
     
-    def _create_sample_data(self) -> pd.DataFrame:
-        """Crée des données d'exemple pour les tests"""
-        dates = pd.date_range(start='2024-01-01', end='2024-06-08', freq='D')
-        n_days = len(dates)
+    def _get_real_market_data(self, symbol: str) -> Optional[pd.DataFrame]:
+        """Récupère les données de marché réelles depuis les APIs"""
+        try:
+            # Utiliser le service de données de marché réel
+            from .market_data import MarketDataProvider
+            market_service = MarketDataProvider()
+            
+            # Récupérer les données historiques
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=365)  # 1 an de données
+            
+            historical_data = market_service.get_historical_data(
+                symbol, 
+                start_date.strftime('%Y-%m-%d'),
+                end_date.strftime('%Y-%m-%d')
+            )
+            
+            if historical_data and len(historical_data) > 0:
+                df = pd.DataFrame(historical_data)
+                df['date'] = pd.to_datetime(df['date'])
+                return df
+            
+        except Exception as e:
+            logger.warning(f"Impossible de récupérer les données réelles pour {symbol}: {e}")
         
-        # Générer des prix réalistes avec tendance et volatilité
-        np.random.seed(42)
-        returns = np.random.normal(0.001, 0.02, n_days)  # Rendements journaliers
-        prices = [100]  # Prix initial
-        
-        for i in range(1, n_days):
-            new_price = prices[-1] * (1 + returns[i])
-            prices.append(new_price)
-        
-        # Créer OHLC à partir du close
-        df = pd.DataFrame({
-            'date': dates,
-            'close': prices,
-            'open': [p * (1 + np.random.normal(0, 0.005)) for p in prices],
-            'high': [p * (1 + abs(np.random.normal(0, 0.01))) for p in prices],
-            'low': [p * (1 - abs(np.random.normal(0, 0.01))) for p in prices],
-            'volume': [int(np.random.normal(1000000, 200000)) for _ in range(n_days)]
-        })
-        
-        # Assurer que high >= close >= low et open
-        df['high'] = df[['high', 'close', 'open']].max(axis=1)
-        df['low'] = df[['low', 'close', 'open']].min(axis=1)
-        
-        return df
+        return None
 
 def get_signal_generator_service() -> TradingSignalGenerator:
     """Factory function pour le service de génération de signaux"""

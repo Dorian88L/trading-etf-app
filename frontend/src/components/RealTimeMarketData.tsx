@@ -35,6 +35,11 @@ const RealTimeMarketData: React.FC<RealTimeMarketDataProps> = ({
   const { isAuthenticated } = useAppSelector(state => state.auth);
 
   const connectWebSocket = useCallback(() => {
+    // Temporarily disable WebSocket connections until properly configured
+    console.log('🔌 WebSocket connection temporarily disabled');
+    setConnectionStatus('disconnected');
+    return;
+    
     if (!isAuthenticated || websocket?.readyState === WebSocket.OPEN) {
       return;
     }

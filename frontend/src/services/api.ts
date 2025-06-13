@@ -299,7 +299,7 @@ export const signalsAPI = {
     sectors?: string;
     limit?: number;
   }): Promise<any> => {
-    const response = await api.get('/advanced-signals/signals/advanced', { params });
+    const response = await api.get('/signals/advanced', { params });
     return response.data;
   },
 
@@ -548,9 +548,10 @@ export const realtimeMarketAPI = {
 
   // WebSocket URL helper
   getWebSocketUrl: (): string => {
-    const protocol = 'ws:';
+    const isSecure = API_CONFIG.BASE_URL.startsWith('https://');
+    const protocol = isSecure ? 'wss:' : 'ws:';
     const apiHost = API_CONFIG.BASE_URL.replace('http://', '').replace('https://', '');
-    return `${protocol}//${apiHost}/ws/market-data`;
+    return `${protocol}//${apiHost}/api/v1/ws/market-data`;
   }
 };
 

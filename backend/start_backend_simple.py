@@ -63,17 +63,17 @@ if __name__ == "__main__":
     local_ip = socket.gethostbyname(hostname)
     
     print("🚀 Démarrage du backend Trading ETF simplifié...")
-    print(f"📍 Local: http://localhost:8000")
-    print(f"🌐 Réseau: http://{local_ip}:8000") 
-    print(f"🔍 Health check: http://{local_ip}:8000/health")
-    print(f"💾 Test DB: http://{local_ip}:8000/test-db")
-    print(f"🗄️ Test Redis: http://{local_ip}:8000/test-redis")
+    print(f"📍 Local: http://localhost:8443")
+    print(f"🌐 External: http://investeclaire.fr:8443") 
+    print(f"🔍 Health check: http://investeclaire.fr:8443/health")
+    print(f"💾 Test DB: http://investeclaire.fr:8443/test-db")
+    print(f"🗄️ Test Redis: http://investeclaire.fr:8443/test-redis")
     print("")
     
     uvicorn.run(
         "start_backend_simple:app",
         host="0.0.0.0",
-        port=8000,
+        port=8443,
         reload=True,
         log_level="info"
     )

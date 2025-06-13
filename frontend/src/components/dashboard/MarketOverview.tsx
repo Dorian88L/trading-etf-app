@@ -7,7 +7,7 @@ import {
   ClockIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
-import { getApiUrl } from '../../config/api';
+import { getApiUrl, API_CONFIG } from '../../config/api';
 
 interface MarketIndex {
   name: string;
@@ -40,10 +40,8 @@ const MarketOverview: React.FC<MarketOverviewProps> = ({
   const [activeTab, setActiveTab] = useState<'indices' | 'sectors' | 'sentiment'>('indices');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  // Données d'exemple si non fournies - en attendant les vraies données d'API
-  const defaultIndices: MarketIndex[] = [
-    // Pas de données par défaut - l'application doit utiliser les vraies données
-  ];
+  // Pas de données par défaut - utiliser uniquement les vraies données d'API
+  const defaultIndices: MarketIndex[] = [];
 
   // Fetch sectors data from API instead of hardcoded values
   const [sectorData, setSectorData] = useState<SectorPerformance[]>([]);
@@ -51,7 +49,7 @@ const MarketOverview: React.FC<MarketOverviewProps> = ({
   useEffect(() => {
     const fetchSectors = async () => {
       try {
-        const response = await fetch(`${getApiUrl('/real-market/sectors')}`);
+        const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.SECTORS)}`);
         if (response.ok) {
           const data = await response.json();
           setSectorData(data.data || []);

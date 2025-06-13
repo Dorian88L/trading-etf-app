@@ -4,7 +4,6 @@ import { marketAPI } from '../services/api';
 import PriceAlertCreator from '../components/alerts/PriceAlertCreator';
 import LoadingState from '../components/LoadingState';
 import { useApiCall } from '../hooks/useApiCall';
-import ETFListDiagnostic from '../components/ETFList/ETFListDiagnostic';
 
 interface RealETFData {
   symbol: string;
@@ -43,10 +42,10 @@ const ETFList: React.FC = () => {
       retryAttempts: 3,
       autoRetry: true,
       onSuccess: (data) => {
-        console.log(`Chargé ${data.length} ETFs avec succès`);
+        // ETFs loaded successfully
       },
       onError: (error) => {
-        console.error('Erreur lors du chargement des ETFs:', error);
+        // Handle ETF loading error silently in production
       }
     }
   );
@@ -592,10 +591,6 @@ const ETFList: React.FC = () => {
         />
       )}
 
-      {/* Diagnostic en mode développement */}
-      {process.env.NODE_ENV === 'development' && (
-        <ETFListDiagnostic etfs={etfs || []} loading={loading} error={error} />
-      )}
     </div>
   );
 };

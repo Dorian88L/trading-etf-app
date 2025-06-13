@@ -43,48 +43,39 @@ app = FastAPI(
     ]
 )
 
-# Middleware de debugging pour voir toutes les requêtes
+# Request timing middleware (production-ready)
 @app.middleware("http")
-async def debug_requests(request: Request, call_next):
+async def log_requests(request: Request, call_next):
     start_time = time.time()
-    
-    # Log de la requête entrante
-    print(f"🔧 DEBUG REQUEST: {request.method} {request.url}")
-    print(f"🔧 DEBUG HEADERS: {dict(request.headers)}")
-    print(f"🔧 DEBUG CLIENT: {request.client}")
-    
     response = await call_next(request)
-    
-    # Log de la réponse
     process_time = time.time() - start_time
-    print(f"🔧 DEBUG RESPONSE: {response.status_code} - {process_time:.4f}s")
-    print(f"🔧 DEBUG RESPONSE HEADERS: {dict(response.headers)}")
+    
+    # Log only essential information in production
+    if settings.DEBUG:
+        print(f"⏱️ {request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s")
     
     return response
 
-# Add CORS middleware - Configuration pour développement local
-origins = [
-    "http://localhost:80",
-    "http://localhost:3000",
-    "http://127.0.0.1:80",
-    "http://127.0.0.1:3000"
-]
+# CORS configuration using settings
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
 
-# Add security middleware for local development
+# Add security middleware for local development and production
 app.add_middleware(
     TrustedHostMiddleware, 
     allowed_hosts=[
         "localhost", 
-        "127.0.0.1"
+        "127.0.0.1",
+        "investeclaire.fr",
+        "www.investeclaire.fr",
+        "api.investeclaire.fr"
     ]
 )
 

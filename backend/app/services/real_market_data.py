@@ -261,6 +261,41 @@ class RealMarketDataService:
         """Récupère les données d'un seul ETF (pour tests)"""
         return self.get_real_etf_data(symbol)
     
+    def get_historical_data(self, symbol: str, period: str = "1mo") -> List[Dict]:
+        """Récupère les données historiques d'un ETF"""
+        try:
+            import yfinance as yf
+            
+            # Créer l'objet ticker
+            ticker = yf.Ticker(symbol)
+            
+            # Récupérer les données historiques
+            hist = ticker.history(period=period)
+            
+            if hist.empty:
+                logger.warning(f"Aucune donnée historique trouvée pour {symbol}")
+                return []
+            
+            # Convertir en format dict avec les noms de colonnes corrects
+            historical_data = []
+            for date, row in hist.iterrows():
+                historical_data.append({
+                    'timestamp': date,
+                    'open_price': float(row['Open']),
+                    'high_price': float(row['High']),
+                    'low_price': float(row['Low']),
+                    'close_price': float(row['Close']),
+                    'volume': int(row['Volume']),
+                    'adj_close': float(row['Close'])  # Assuming adjusted close same as close
+                })
+            
+            logger.info(f"Données historiques récupérées pour {symbol}: {len(historical_data)} points")
+            return historical_data
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des données historiques pour {symbol}: {e}")
+            return []
+    
 
 # Service global
 real_market_service = RealMarketDataService()

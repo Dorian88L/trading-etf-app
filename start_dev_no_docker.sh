@@ -64,10 +64,10 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Démarrer le frontend sur port 80
+# Démarrer le frontend sur port 3000
 echo "🌐 Démarrage du frontend React..."
 cd frontend
-sudo PORT=80 HOST=0.0.0.0 nohup npm start > ../logs/frontend.log 2>&1 &
+PORT=3000 HOST=0.0.0.0 nohup npm start > ../logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo $FRONTEND_PID > ../logs/frontend.pid
 cd ..
@@ -75,8 +75,8 @@ cd ..
 # Attendre que le frontend soit prêt
 echo "⏳ Attente du frontend (60s max)..."
 for i in {1..60}; do
-    if curl -s http://localhost:80 >/dev/null 2>&1; then
-        echo "✅ Frontend prêt sur http://localhost:80"
+    if curl -s http://localhost:3000 >/dev/null 2>&1; then
+        echo "✅ Frontend prêt sur http://localhost:3000"
         break
     fi
     if [ $i -eq 60 ]; then
@@ -86,6 +86,11 @@ for i in {1..60}; do
     sleep 1
 done
 
+# Démarrer nginx avec SSL
+echo "🌐 Démarrage de nginx avec SSL..."
+sudo nginx -c /home/dorian/trading-etf-app/nginx_complete_ssl.conf
+echo "✅ Nginx démarré avec configuration SSL"
+
 echo ""
 # Obtenir l'IP publique
 PUBLIC_IP=$(curl -s ifconfig.me 2>/dev/null || echo "IP_PUBLIQUE_NON_DETECTEE")
@@ -94,14 +99,15 @@ echo "🎉 Application démarrée avec succès!"
 echo "======================================"
 echo "Accès local:"
 echo "  Backend:  http://localhost:8443"
-echo "  Frontend: http://localhost:80"
+echo "  Frontend: http://localhost:3000 (via nginx: https://investeclaire.fr)"
 echo ""
 echo "Accès externe (depuis Internet):"
-echo "  Backend:  http://${PUBLIC_IP}:8443"
-echo "  Frontend: http://${PUBLIC_IP}:80"
+echo "  Frontend: https://investeclaire.fr"
+echo "  Backend:  https://api.investeclaire.fr"
 echo ""
-echo "⚠️  IMPORTANT: Assurez-vous que les ports 80 et 8443 sont ouverts dans votre firewall"
+echo "⚠️  IMPORTANT: Assurez-vous que les ports 80, 443 et 8443 sont ouverts dans votre firewall"
 echo "    - sudo ufw allow 80"
+echo "    - sudo ufw allow 443"
 echo "    - sudo ufw allow 8443"
 echo ""
 echo "PIDs sauvegardés dans logs/"

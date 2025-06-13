@@ -48,8 +48,8 @@ interface BacktestingEngineProps {
 
 const BacktestingEngine: React.FC<BacktestingEngineProps> = ({ onResultsChange }) => {
   const [config, setConfig] = useState<BacktestConfig>({
-    startDate: '2023-01-01',
-    endDate: '2024-01-01',
+    startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
     initialCapital: 10000,
     strategy: 'rsi',
     strategyParams: {
@@ -57,7 +57,7 @@ const BacktestingEngine: React.FC<BacktestingEngineProps> = ({ onResultsChange }
       macd: { fastPeriod: 12, slowPeriod: 26, signalPeriod: 9 },
       bollinger: { period: 20, deviation: 2 }
     },
-    etfSymbols: ['IWDA.AS', 'CSPX.AS'],
+    etfSymbols: [],
     rebalanceFrequency: 'daily',
     transactionCost: 0.1
   });

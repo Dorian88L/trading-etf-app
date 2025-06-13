@@ -58,12 +58,17 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = REDIS_URL
     CELERY_RESULT_BACKEND: str = REDIS_URL
     
-    # CORS - Développement local uniquement
+    # CORS - Production et développement
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:80",
         "http://localhost:3000",
         "http://127.0.0.1:80", 
-        "http://127.0.0.1:3000"
+        "http://127.0.0.1:3000",
+        "http://investeclaire.fr",
+        "http://www.investeclaire.fr",
+        "https://investeclaire.fr",
+        "https://www.investeclaire.fr",
+        "https://api.investeclaire.fr"
     ]
     
     # External APIs

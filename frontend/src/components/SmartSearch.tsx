@@ -147,7 +147,7 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ onClose, className = '' }) =>
 
   const searchSignals = async (query: string): Promise<SearchResult[]> => {
     try {
-      const response = await fetch('/api/v1/advanced-signals/signals/advanced', {
+      const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.ADVANCED_SIGNALS)}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'

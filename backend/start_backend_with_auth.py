@@ -58,7 +58,14 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Autorise toutes les origines pour le dev
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000",
+        "http://investeclaire.fr",
+        "http://www.investeclaire.fr",
+        "http://investeclaire.fr:80",
+        "http://www.investeclaire.fr:80"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -453,17 +460,17 @@ if __name__ == "__main__":
     local_ip = socket.gethostbyname(hostname)
     
     print("🚀 Démarrage du backend Trading ETF avec authentification...")
-    print(f"📍 Local: http://localhost:8000")
-    print(f"🌐 Réseau WiFi: http://{local_ip}:8000")
-    print(f"🔐 Login: POST http://{local_ip}:8000/api/v1/auth/login")
+    print(f"📍 Local: http://localhost:8443")
+    print(f"🌐 External: http://investeclaire.fr:8443")
+    print(f"🔐 Login: POST http://investeclaire.fr:8443/api/v1/auth/login")
     print(f"👤 Test user: test@trading.com / test123")
-    print(f"📚 Documentation: http://{local_ip}:8000/docs")
+    print(f"📚 Documentation: http://investeclaire.fr:8443/docs")
     print("")
     
     uvicorn.run(
         "start_backend_with_auth:app",
-        host="127.0.0.1",  # Écoute seulement sur localhost
-        port=8000,
+        host="0.0.0.0",  # Écoute sur toutes les interfaces
+        port=8443,
         reload=True,
         log_level="info"
     )

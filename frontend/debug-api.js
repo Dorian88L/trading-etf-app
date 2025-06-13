@@ -1,1 +1,0 @@
-console.log('API_CONFIG:', window.API_CONFIG = { BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:8443' }); console.log('Current URL:', `${window.API_CONFIG.BASE_URL}/api/v1/auth/register`);

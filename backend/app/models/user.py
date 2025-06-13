@@ -22,6 +22,11 @@ class User(Base):
     preferences = relationship("UserPreferences", back_populates="user", uselist=False)
     portfolios = relationship("Portfolio", back_populates="user")
     watchlist = relationship("UserWatchlist", back_populates="user")
+    watchlists = relationship("Watchlist", back_populates="user")
     alerts = relationship("Alert", back_populates="user")
+    user_alerts = relationship("UserAlert", back_populates="user")
+    signal_subscriptions = relationship("UserSignalSubscription", back_populates="user")
+    push_subscriptions = relationship("PushSubscription", back_populates="user")
+    notification_preferences = relationship("UserNotificationPreferences", back_populates="user", uselist=False)
 
 

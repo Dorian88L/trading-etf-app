@@ -60,7 +60,14 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000",
+        "http://investeclaire.fr",
+        "http://www.investeclaire.fr",
+        "http://investeclaire.fr:80",
+        "http://www.investeclaire.fr:80"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -462,16 +469,17 @@ def test_database():
 
 if __name__ == "__main__":
     print("🚀 Démarrage du backend Trading ETF avec données réelles...")
-    print("📍 Backend accessible sur: http://localhost:8000")
-    print("🔐 Login endpoint: http://localhost:8000/api/v1/auth/login")
-    print("📊 Données réelles ETF: http://localhost:8000/api/v1/real-market/")
+    print("📍 Backend accessible sur: http://localhost:8443")
+    print("🌐 External access: http://investeclaire.fr:8443")
+    print("🔐 Login endpoint: http://investeclaire.fr:8443/api/v1/auth/login")
+    print("📊 Données réelles ETF: http://investeclaire.fr:8443/api/v1/real-market/")
     print("👤 Test user: test@trading.com / test123")
     print("")
     
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=8443,
         reload=False,
         log_level="info"
     )
