@@ -236,7 +236,7 @@ export const marketAPI = {
 
   // Real Market Data API
   getRealMarketData: async (symbol: string, period: string = '1mo'): Promise<any> => {
-    const response = await api.get(`/real-market/real-market-data/${symbol}`, { 
+    const response = await api.get(`${API_CONFIG.ENDPOINTS.HISTORICAL}/${symbol}`, { 
       params: { period } 
     });
     return response.data;
@@ -299,7 +299,7 @@ export const signalsAPI = {
     sectors?: string;
     limit?: number;
   }): Promise<any> => {
-    const response = await api.get('/signals/advanced', { params });
+    const response = await api.get(API_CONFIG.ENDPOINTS.ADVANCED_SIGNALS, { params });
     return response.data;
   },
 

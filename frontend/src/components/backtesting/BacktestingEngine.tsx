@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { marketAPI } from '../../services/api';
+import { getApiUrl, API_CONFIG } from '../../config/api';
 
 interface BacktestConfig {
   startDate: string;
@@ -107,7 +108,7 @@ const BacktestingEngine: React.FC<BacktestingEngineProps> = ({ onResultsChange }
       else period = '2y';
       
       // Try to get real market data
-      const response = await fetch(`/api/v1/real-market/real-market-data/${symbol}?period=${period}`, {
+      const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.HISTORICAL)}/${symbol}?period=${period}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'

@@ -11,6 +11,7 @@ import {
   ArrowTrendingDownIcon,
   FireIcon
 } from '@heroicons/react/24/outline';
+import { getApiUrl, API_CONFIG } from '../config/api';
 // import { Link } from 'react-router-dom'; // eslint-disable-line @typescript-eslint/no-unused-vars
 
 interface SearchResult {
