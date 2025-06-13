@@ -4,7 +4,7 @@
 # Vérifie si les pages répondent et si le HTML de base est présent
 
 FRONTEND_URL="http://localhost:3000"
-BACKEND_URL="http://localhost:8001"
+BACKEND_URL="http://localhost:8443"
 
 echo "🚀 Test des pages frontend Trading ETF"
 echo "======================================="
