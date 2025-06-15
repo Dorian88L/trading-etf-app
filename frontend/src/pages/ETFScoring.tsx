@@ -24,6 +24,28 @@ interface SectorAnalysis {
   };
 }
 
+// Generate mock ETF scores for fallback data
+const generateMockETFScores = (count: number): ETFScore[] => {
+  const mockScores: ETFScore[] = [];
+  for (let i = 0; i < count; i++) {
+    const finalScore = 50 + Math.random() * 40; // Score between 50-90
+    mockScores.push({
+      etf_isin: `MOCK${i.toString().padStart(3, '0')}`,
+      final_score: Math.round(finalScore * 10) / 10,
+      technical_score: Math.round((40 + Math.random() * 50) * 10) / 10,
+      fundamental_score: Math.round((40 + Math.random() * 50) * 10) / 10,
+      risk_score: Math.round((30 + Math.random() * 60) * 10) / 10,
+      momentum_score: Math.round((30 + Math.random() * 60) * 10) / 10,
+      timestamp: new Date().toISOString(),
+      rating: finalScore >= 80 ? 'A+' : finalScore >= 70 ? 'A' : finalScore >= 60 ? 'B+' : finalScore >= 50 ? 'B' : 'C',
+      confidence: Math.round((70 + Math.random() * 25) * 10) / 10,
+      rank: i + 1,
+      percentile: Math.round(((count - i) / count) * 100 * 10) / 10
+    });
+  }
+  return mockScores;
+};
+
 const ETFScoring: React.FC = () => {
   const [topETFs, setTopETFs] = useState<ETFScore[]>([]);
   const [sectorAnalysis, setSectorAnalysis] = useState<SectorAnalysis>({});

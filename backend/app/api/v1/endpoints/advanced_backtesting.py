@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, date
 from pydantic import BaseModel, Field
 import uuid
 from decimal import Decimal
+import pandas as pd
 import asyncio
 
 from app.core.database import get_db

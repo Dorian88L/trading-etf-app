@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { apiCall } from '../../services/api';
+import { advancedBacktestingAPI } from '../../services/api';
 
 interface WalkForwardRequest {
   etf_symbol: string;
@@ -57,8 +57,8 @@ const WalkForwardAnalysis: React.FC = () => {
   const runWalkForwardAnalysis = async () => {
     setIsRunning(true);
     try {
-      const response = await apiCall('advanced-backtesting/walk-forward-analysis', 'POST', config);
-      setWalkForwardResults(response.data);
+      const response = await advancedBacktestingAPI.runWalkForwardAnalysis(config);
+      setWalkForwardResults(response);
     } catch (error) {
       console.error('Erreur Walk-Forward Analysis:', error);
       alert('Erreur lors de l\'analyse Walk-Forward');
@@ -70,8 +70,8 @@ const WalkForwardAnalysis: React.FC = () => {
   const runFutureSimulation = async () => {
     setIsRunning(true);
     try {
-      const response = await apiCall('advanced-backtesting/future-simulation', 'POST', futureConfig);
-      setFutureSimResults(response.data);
+      const response = await advancedBacktestingAPI.runFutureSimulation(futureConfig);
+      setFutureSimResults(response);
     } catch (error) {
       console.error('Erreur simulation futures:', error);
       alert('Erreur lors de la simulation futures');
@@ -392,7 +392,7 @@ const WalkForwardAnalysis: React.FC = () => {
                 </span>
                 <div>
                   <div className="font-medium">Stratégie Stable</div>
-                  <div className="text-xs text-gray-600">Cohérence > 70%</div>
+                  <div className="text-xs text-gray-600">Cohérence &gt; 70%</div>
                 </div>
               </div>
 
@@ -404,7 +404,7 @@ const WalkForwardAnalysis: React.FC = () => {
                 </span>
                 <div>
                   <div className="font-medium">Paramètres Efficaces</div>
-                  <div className="text-xs text-gray-600">Efficacité > 60%</div>
+                  <div className="text-xs text-gray-600">Efficacité &gt; 60%</div>
                 </div>
               </div>
 
@@ -416,7 +416,7 @@ const WalkForwardAnalysis: React.FC = () => {
                 </span>
                 <div>
                   <div className="font-medium">Prêt pour le Futur</div>
-                  <div className="text-xs text-gray-600">Score forward > 65%</div>
+                  <div className="text-xs text-gray-600">Score forward &gt; 65%</div>
                 </div>
               </div>
             </div>
@@ -431,7 +431,7 @@ const WalkForwardAnalysis: React.FC = () => {
           <p>• <strong>Walk-Forward Analysis:</strong> Optimise les paramètres sur une période puis teste sur la suivante, répète le processus</p>
           <p>• <strong>Test Données Futures:</strong> Simule des données futures basées sur les caractéristiques historiques et teste la robustesse</p>
           <p>• <strong>Validation:</strong> Une stratégie robuste doit maintenir ses performances sur données non-vues</p>
-          <p>• <strong>Scores > 70%:</strong> Indiquent une stratégie fiable pour le trading automatique</p>
+          <p>• <strong>Scores &gt; 70%:</strong> Indiquent une stratégie fiable pour le trading automatique</p>
         </div>
       </div>
     </div>

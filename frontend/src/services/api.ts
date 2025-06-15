@@ -555,6 +555,33 @@ export const realtimeMarketAPI = {
   }
 };
 
+// Advanced Backtesting API
+export const advancedBacktestingAPI = {
+  runWalkForwardAnalysis: async (config: {
+    etf_symbol: string;
+    strategy_type: string;
+    optimization_window_days: number;
+    test_window_days: number;
+    step_size_days: number;
+    start_date?: string;
+    end_date?: string;
+    param_ranges?: { [key: string]: number[] };
+  }): Promise<any> => {
+    const response = await api.post('/advanced-backtesting/walk-forward-analysis', config);
+    return response.data;
+  },
+
+  runFutureSimulation: async (config: {
+    etf_symbol: string;
+    strategy_type: string;
+    simulation_weeks: number;
+    use_optimized_params: boolean;
+  }): Promise<any> => {
+    const response = await api.post('/advanced-backtesting/future-simulation', config);
+    return response.data;
+  }
+};
+
 // Export utilities
 export { setAuthToken, removeAuthToken, getAuthToken };
 
