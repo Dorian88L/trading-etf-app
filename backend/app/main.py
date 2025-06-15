@@ -63,8 +63,22 @@ app.add_middleware(
     allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"]
+    allow_headers=[
+        "Accept",
+        "Accept-Language", 
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "X-CSRFToken",
+        "Cache-Control"
+    ],
+    expose_headers=[
+        "Content-Length",
+        "Content-Type", 
+        "X-Total-Count",
+        "X-Request-ID"
+    ]
 )
 
 # Add security middleware for local development and production

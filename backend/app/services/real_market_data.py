@@ -44,63 +44,116 @@ class RealMarketDataPoint:
 class RealMarketDataService:
     """Service de collecte de données de marché réelles"""
     
-    # ETFs européens populaires avec leurs symboles Yahoo Finance (vérifiés)
+    # ETFs européens populaires avec leurs symboles Yahoo Finance (corrigés et vérifiés)
     EUROPEAN_ETFS = {
-        'IWDA.AS': {
+        # iShares ETFs
+        'IWDA.L': {
             'isin': 'IE00B4L5Y983',
             'name': 'iShares Core MSCI World UCITS ETF',
             'sector': 'Global Developed',
-            'exchange': 'Euronext Amsterdam',
-            'currency': 'EUR'
+            'exchange': 'London Stock Exchange',
+            'currency': 'USD'
         },
-        'VWCE.DE': {
+        'VWRL.L': {
             'isin': 'IE00BK5BQT80',
             'name': 'Vanguard FTSE All-World UCITS ETF',
             'sector': 'Global All Cap',
-            'exchange': 'XETRA',
-            'currency': 'EUR'
+            'exchange': 'London Stock Exchange',
+            'currency': 'USD'
         },
         'CSPX.L': {
             'isin': 'IE00B5BMR087',
             'name': 'iShares Core S&P 500 UCITS ETF',
             'sector': 'US Large Cap',
             'exchange': 'London Stock Exchange',
-            'currency': 'GBP'
+            'currency': 'USD'
         },
-        'IUSQ.DE': {
-            'isin': 'IE00B4L5YC18',
-            'name': 'iShares Core S&P 500 UCITS ETF',
+        'VUSA.L': {
+            'isin': 'IE00B3XXRP09',
+            'name': 'Vanguard S&P 500 UCITS ETF',
             'sector': 'US Large Cap',
-            'exchange': 'XETRA',
-            'currency': 'EUR'
+            'exchange': 'London Stock Exchange',
+            'currency': 'USD'
         },
-        'EIMI.DE': {
+        'IEMA.L': {
             'isin': 'IE00BKM4GZ66',
             'name': 'iShares Core MSCI EM IMI UCITS ETF',
             'sector': 'Emerging Markets',
+            'exchange': 'London Stock Exchange',
+            'currency': 'USD'
+        },
+        'IEUR.L': {
+            'isin': 'IE00B4K48X80',
+            'name': 'iShares Core MSCI Europe UCITS ETF',
+            'sector': 'European Developed',
+            'exchange': 'London Stock Exchange',
+            'currency': 'EUR'
+        },
+        'ISF.L': {
+            'isin': 'IE00B52VJ196',
+            'name': 'iShares Core EURO STOXX 50 UCITS ETF',
+            'sector': 'European Large Cap',
+            'exchange': 'London Stock Exchange',
+            'currency': 'EUR'
+        },
+        'INRG.L': {
+            'isin': 'IE00B1XNHC34',
+            'name': 'iShares Global Clean Energy UCITS ETF',
+            'sector': 'Clean Energy',
+            'exchange': 'London Stock Exchange',
+            'currency': 'USD'
+        },
+        # ETFs avec symboles Xetra (Allemagne)
+        'EUNL.DE': {
+            'isin': 'IE00B4K48X80',
+            'name': 'iShares Core MSCI Europe UCITS ETF EUR',
+            'sector': 'European Developed',
             'exchange': 'XETRA',
             'currency': 'EUR'
         },
-        'VUSA.AS': {
-            'isin': 'IE00B3XXRP09',
-            'name': 'Vanguard S&P 500 UCITS ETF',
-            'sector': 'US Large Cap',
-            'exchange': 'Euronext Amsterdam',
-            'currency': 'EUR'
-        },
-        'VUAA.DE': {
-            'isin': 'IE00B3XXRP09',
-            'name': 'Vanguard S&P 500 UCITS ETF',
-            'sector': 'US Large Cap',
+        'XMME.DE': {
+            'isin': 'LU0274208692',
+            'name': 'Xtrackers MSCI Emerging Markets UCITS ETF',
+            'sector': 'Emerging Markets',
             'exchange': 'XETRA',
-            'currency': 'EUR'
+            'currency': 'USD'
         },
-        'VMID.AS': {
-            'isin': 'IE00BKX55T58',
-            'name': 'Vanguard FTSE Developed World UCITS ETF',
+        # ETFs Paris
+        'CW8.PA': {
+            'isin': 'LU0274208692',
+            'name': 'Amundi MSCI World UCITS ETF',
             'sector': 'Global Developed',
-            'exchange': 'Euronext Amsterdam',
+            'exchange': 'Euronext Paris',
             'currency': 'EUR'
+        },
+        'CAC.PA': {
+            'isin': 'FR0010296061',
+            'name': 'Lyxor CAC 40 UCITS ETF',
+            'sector': 'French Large Cap',
+            'exchange': 'Euronext Paris',
+            'currency': 'EUR'
+        },
+        # ETFs US pour test de connectivité
+        'SPY': {
+            'isin': 'US78462F1030',
+            'name': 'SPDR S&P 500 ETF Trust',
+            'sector': 'US Large Cap',
+            'exchange': 'NYSE',
+            'currency': 'USD'
+        },
+        'VTI': {
+            'isin': 'US9229087690',
+            'name': 'Vanguard Total Stock Market ETF',
+            'sector': 'US Total Market',
+            'exchange': 'NYSE',
+            'currency': 'USD'
+        },
+        'QQQ': {
+            'isin': 'US46090E1038',
+            'name': 'Invesco QQQ Trust',
+            'sector': 'US Technology',
+            'exchange': 'NASDAQ',
+            'currency': 'USD'
         }
     }
     

@@ -9,6 +9,7 @@ import {
   AdjustmentsHorizontalIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
+import WalkForwardAnalysis from './WalkForwardAnalysis';
 
 interface BacktestConfig {
   name: string;
@@ -430,6 +431,11 @@ const AdvancedBacktestingEngine: React.FC<AdvancedBacktestingEngineProps> = ({ o
         </div>
       )}
 
+      {/* Walk-Forward Analysis Section */}
+      <div className="mt-8">
+        <WalkForwardAnalysis />
+      </div>
+
       {/* Informations supplémentaires */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h4 className="font-medium text-blue-900 mb-2">💡 Conseils pour un backtest efficace</h4>
@@ -438,6 +444,7 @@ const AdvancedBacktestingEngine: React.FC<AdvancedBacktestingEngineProps> = ({ o
           <li>• Diversifiez vos ETFs pour réduire les risques</li>
           <li>• Les coûts de transaction ont un impact important sur les performances</li>
           <li>• Comparez toujours avec une stratégie buy-and-hold</li>
+          <li>• <strong>Walk-Forward Analysis:</strong> Validez la robustesse avec des tests sur données futures</li>
         </ul>
       </div>
     </div>

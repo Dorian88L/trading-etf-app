@@ -39,11 +39,20 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DEBUG: bool = ENVIRONMENT == "development"
     
-    # Security
-    SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    # Security - Configuration renforcée
+    SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
+    ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_EXPIRE_MINUTES", "30"))
+    REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "7"))
+    
+    # Validation de la clé secrète
+    def __post_init__(self):
+        if not self.SECRET_KEY or self.SECRET_KEY == "your-secret-key-change-in-production":
+            raise ValueError(
+                "🚨 ERREUR SÉCURITÉ: JWT_SECRET_KEY manquante ou par défaut!\n"
+                "Générez une clé forte: openssl rand -hex 32\n"
+                "Puis: export JWT_SECRET_KEY=your_generated_key"
+            )
     
     # Database
     DATABASE_URL: str = os.getenv(

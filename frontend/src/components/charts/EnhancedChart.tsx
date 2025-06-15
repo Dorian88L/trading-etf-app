@@ -89,29 +89,62 @@ const EnhancedChart: React.FC<EnhancedChartProps> = ({
       setLoading(true);
       setError('');
 
-      // Tentative de récupération des vraies données
+      // Récupérer les données historiques réelles depuis la nouvelle API
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8443';
+      
+      // Mapper le timeframe vers la période d'API
+      const periodMap: { [key: string]: string } = {
+        '1H': '1d',
+        '4H': '5d', 
+        '1D': '1mo',
+        '1W': '3mo',
+        '1M': '1y'
+      };
+      
+      const period = periodMap[timeframe] || '1mo';
+      
       try {
-        const response = await fetch(`/api/v1/market/historical/${symbol}?timeframe=${timeframe}&limit=100`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        const response = await fetch(`${apiUrl}/api/v1/historical/etf/${symbol}/historical?period=${period}&include_indicators=true`);
 
         if (response.ok) {
           const data = await response.json();
-          setMarketData(data.market_data || []);
-          setIndicators(data.indicators || null);
-          return;
+          
+          if (data.historical_data && data.historical_data.length > 0) {
+            // Convertir les données au format attendu
+            const formattedData: MarketData[] = data.historical_data.map((point: any) => ({
+              date: new Date(point.timestamp).toISOString().split('T')[0],
+              open: point.open_price,
+              high: point.high_price,
+              low: point.low_price,
+              close: point.close_price,
+              volume: point.volume
+            }));
+            
+            setMarketData(formattedData);
+            
+            // Convertir les indicateurs techniques s'ils sont disponibles
+            if (data.technical_indicators) {
+              const convertedIndicators = convertApiIndicators(data.technical_indicators, formattedData.length);
+              setIndicators(convertedIndicators);
+            } else {
+              // Calculer les indicateurs de base localement
+              const basicIndicators = calculateBasicIndicators(formattedData);
+              setIndicators(basicIndicators);
+            }
+            
+            console.log(`✅ Chargé ${formattedData.length} points de données pour ${symbol}`);
+            return;
+          }
         }
+        
+        throw new Error(`Pas de données disponibles pour ${symbol}`);
+        
       } catch (apiError) {
-        console.log('API non disponible, génération de données mockées');
+        console.error('Erreur API:', apiError);
+        setError(`Impossible de charger les données pour ${symbol}. Vérifiez que le symbole est correct.`);
+        setMarketData([]);
+        setIndicators(null);
       }
-
-      // Fallback avec données mockées
-      const mockData = generateMockData();
-      setMarketData(mockData.data);
-      setIndicators(mockData.indicators);
 
     } catch (err: any) {
       console.error('Erreur chargement données graphique:', err);
@@ -121,227 +154,92 @@ const EnhancedChart: React.FC<EnhancedChartProps> = ({
     }
   };
 
-  const generateMockData = () => {
-    const days = 100;
-    const basePrice = 100;
-    const data: MarketData[] = [];
-    const indicators: TechnicalIndicators = {
-      sma20: [], sma50: [], sma200: [], ema20: [], rsi: [], macd: [], macdSignal: [],
-      macdHistogram: [], bbUpper: [], bbLower: [], bbMiddle: [], atr: [], obv: [],
-      vwap: [], stochK: [], stochD: [], williams: [], cci: []
+  const convertApiIndicators = (apiIndicators: any, dataLength: number): TechnicalIndicators => {
+    // Créer des arrays avec la valeur de l'indicateur répétée
+    const createArray = (value: number | null, length: number) => {
+      if (value === null || value === undefined) return new Array(length).fill(0);
+      return new Array(length).fill(value);
     };
 
-    let price = basePrice;
-    let obvValue = 0;
+    return {
+      sma20: createArray(apiIndicators.sma_20, dataLength),
+      sma50: createArray(apiIndicators.sma_50, dataLength),
+      sma200: createArray(apiIndicators.sma_200, dataLength),
+      ema20: createArray(apiIndicators.ema_20, dataLength),
+      rsi: createArray(apiIndicators.rsi, dataLength),
+      macd: createArray(apiIndicators.macd, dataLength),
+      macdSignal: createArray(apiIndicators.macd_signal, dataLength),
+      macdHistogram: createArray(apiIndicators.macd_histogram, dataLength),
+      bbUpper: createArray(apiIndicators.bb_upper, dataLength),
+      bbLower: createArray(apiIndicators.bb_lower, dataLength),
+      bbMiddle: createArray(apiIndicators.bb_middle, dataLength),
+      atr: createArray(apiIndicators.atr, dataLength),
+      obv: createArray(apiIndicators.obv, dataLength),
+      vwap: createArray(apiIndicators.vwap, dataLength),
+      stochK: createArray(apiIndicators.stoch_k, dataLength),
+      stochD: createArray(apiIndicators.stoch_d, dataLength),
+      williams: createArray(apiIndicators.williams_r, dataLength),
+      cci: new Array(dataLength).fill(0) // CCI pas encore implémenté dans l'API
+    };
+  };
 
-    for (let i = 0; i < days; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - (days - i));
+  const calculateBasicIndicators = (data: MarketData[]): TechnicalIndicators => {
+    const closes = data.map(d => d.close);
+    const length = data.length;
+    
+    // Calculs simplifiés des moyennes mobiles
+    const sma20 = calculateSMA(closes, 20);
+    const sma50 = calculateSMA(closes, 50);
+    const sma200 = calculateSMA(closes, 200);
+    
+    return {
+      sma20,
+      sma50,
+      sma200,
+      ema20: calculateEMA(closes, 20),
+      rsi: new Array(length).fill(50), // RSI neutre par défaut
+      macd: new Array(length).fill(0),
+      macdSignal: new Array(length).fill(0),
+      macdHistogram: new Array(length).fill(0),
+      bbUpper: closes.map(c => c * 1.02),
+      bbLower: closes.map(c => c * 0.98),
+      bbMiddle: sma20,
+      atr: new Array(length).fill(2),
+      obv: new Array(length).fill(0),
+      vwap: closes, // VWAP simplifié = close
+      stochK: new Array(length).fill(50),
+      stochD: new Array(length).fill(50),
+      williams: new Array(length).fill(-50),
+      cci: new Array(length).fill(0)
+    };
+  };
 
-      // Simulation prix avec tendance et volatilité
-      const trend = Math.sin(i / 20) * 0.5;
-      const volatility = (Math.random() - 0.5) * 4;
-      price = Math.max(price + trend + volatility, price * 0.95);
-
-      const open = price + (Math.random() - 0.5) * 2;
-      const high = Math.max(open, price) + Math.random() * 2;
-      const low = Math.min(open, price) - Math.random() * 2;
-      const close = low + Math.random() * (high - low);
-      const volume = Math.floor(Math.random() * 2000000) + 500000;
-
-      data.push({
-        date: date.toISOString(),
-        open,
-        high,
-        low,
-        close,
-        volume
-      });
-
-      // Calcul des indicateurs techniques
-      if (i >= 19) {
-        // SMA 20
-        const sma20 = data.slice(i - 19, i + 1).reduce((sum, d) => sum + d.close, 0) / 20;
-        indicators.sma20.push(sma20);
+  const calculateSMA = (prices: number[], period: number): number[] => {
+    const sma = [];
+    for (let i = 0; i < prices.length; i++) {
+      if (i < period - 1) {
+        sma.push(prices[i]);
       } else {
-        indicators.sma20.push(close);
+        const sum = prices.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
+        sma.push(sum / period);
       }
-
-      if (i >= 49) {
-        // SMA 50
-        const sma50 = data.slice(i - 49, i + 1).reduce((sum, d) => sum + d.close, 0) / 50;
-        indicators.sma50.push(sma50);
-      } else {
-        indicators.sma50.push(close);
-      }
-
-      if (i >= 199) {
-        // SMA 200
-        const sma200 = data.slice(i - 199, i + 1).reduce((sum, d) => sum + d.close, 0) / 200;
-        indicators.sma200.push(sma200);
-      } else {
-        indicators.sma200.push(close);
-      }
-
-      // EMA 20
-      if (i === 0) {
-        indicators.ema20.push(close);
-      } else {
-        const multiplier = 2 / (20 + 1);
-        const ema = (close - indicators.ema20[i - 1]) * multiplier + indicators.ema20[i - 1];
-        indicators.ema20.push(ema);
-      }
-
-      // RSI
-      if (i >= 14) {
-        const gains = [];
-        const losses = [];
-        for (let j = i - 13; j <= i; j++) {
-          const change = data[j].close - data[j - 1].close;
-          if (change > 0) gains.push(change);
-          else losses.push(Math.abs(change));
-        }
-        const avgGain = gains.length > 0 ? gains.reduce((a, b) => a + b, 0) / gains.length : 0;
-        const avgLoss = losses.length > 0 ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
-        const rs = avgGain / (avgLoss || 1);
-        const rsi = 100 - (100 / (1 + rs));
-        indicators.rsi.push(rsi);
-      } else {
-        indicators.rsi.push(50);
-      }
-
-      // MACD
-      if (i >= 25) {
-        const ema12 = calculateEMA(data.slice(0, i + 1).map(d => d.close), 12);
-        const ema26 = calculateEMA(data.slice(0, i + 1).map(d => d.close), 26);
-        const macd = ema12[ema12.length - 1] - ema26[ema26.length - 1];
-        indicators.macd.push(macd);
-        
-        // Signal line (EMA 9 of MACD)
-        if (indicators.macd.length >= 9) {
-          const signal = calculateEMA(indicators.macd.slice(-9), 9);
-          indicators.macdSignal.push(signal[signal.length - 1]);
-          indicators.macdHistogram.push(macd - signal[signal.length - 1]);
-        } else {
-          indicators.macdSignal.push(macd);
-          indicators.macdHistogram.push(0);
-        }
-      } else {
-        indicators.macd.push(0);
-        indicators.macdSignal.push(0);
-        indicators.macdHistogram.push(0);
-      }
-
-      // Bollinger Bands
-      if (i >= 19) {
-        const sma = indicators.sma20[indicators.sma20.length - 1];
-        const prices = data.slice(i - 19, i + 1).map(d => d.close);
-        const variance = prices.reduce((sum, price) => sum + Math.pow(price - sma, 2), 0) / 20;
-        const stdDev = Math.sqrt(variance);
-        indicators.bbUpper.push(sma + 2 * stdDev);
-        indicators.bbLower.push(sma - 2 * stdDev);
-        indicators.bbMiddle.push(sma);
-      } else {
-        indicators.bbUpper.push(close * 1.02);
-        indicators.bbLower.push(close * 0.98);
-        indicators.bbMiddle.push(close);
-      }
-
-      // ATR
-      if (i > 0) {
-        const tr = Math.max(
-          high - low,
-          Math.abs(high - data[i - 1].close),
-          Math.abs(low - data[i - 1].close)
-        );
-        if (i >= 14) {
-          const atr = data.slice(i - 13, i + 1).reduce((sum, d, idx) => {
-            const prevClose = idx > 0 ? data[i - 13 + idx - 1].close : d.open;
-            const tr = Math.max(d.high - d.low, Math.abs(d.high - prevClose), Math.abs(d.low - prevClose));
-            return sum + tr;
-          }, 0) / 14;
-          indicators.atr.push(atr);
-        } else {
-          indicators.atr.push(tr);
-        }
-      } else {
-        indicators.atr.push(1);
-      }
-
-      // OBV
-      if (i > 0) {
-        if (close > data[i - 1].close) {
-          obvValue += volume;
-        } else if (close < data[i - 1].close) {
-          obvValue -= volume;
-        }
-      }
-      indicators.obv.push(obvValue);
-
-      // VWAP
-      if (i === 0) {
-        indicators.vwap.push(close);
-      } else {
-        const totalVolume = data.slice(0, i + 1).reduce((sum, d) => sum + d.volume, 0);
-        const totalVolumePrice = data.slice(0, i + 1).reduce((sum, d) => sum + ((d.high + d.low + d.close) / 3) * d.volume, 0);
-        indicators.vwap.push(totalVolumePrice / totalVolume);
-      }
-
-      // Stochastic
-      if (i >= 13) {
-        const highestHigh = Math.max(...data.slice(i - 13, i + 1).map(d => d.high));
-        const lowestLow = Math.min(...data.slice(i - 13, i + 1).map(d => d.low));
-        const stochK = ((close - lowestLow) / (highestHigh - lowestLow)) * 100;
-        indicators.stochK.push(stochK);
-        
-        if (indicators.stochK.length >= 3) {
-          const stochD = indicators.stochK.slice(-3).reduce((a, b) => a + b, 0) / 3;
-          indicators.stochD.push(stochD);
-        } else {
-          indicators.stochD.push(stochK);
-        }
-      } else {
-        indicators.stochK.push(50);
-        indicators.stochD.push(50);
-      }
-
-      // Williams %R
-      if (i >= 13) {
-        const highestHigh = Math.max(...data.slice(i - 13, i + 1).map(d => d.high));
-        const lowestLow = Math.min(...data.slice(i - 13, i + 1).map(d => d.low));
-        const williams = ((highestHigh - close) / (highestHigh - lowestLow)) * -100;
-        indicators.williams.push(williams);
-      } else {
-        indicators.williams.push(-50);
-      }
-
-      // CCI
-      if (i >= 19) {
-        const typicalPrices = data.slice(i - 19, i + 1).map(d => (d.high + d.low + d.close) / 3);
-        const smaTP = typicalPrices.reduce((a, b) => a + b, 0) / 20;
-        const meanDeviation = typicalPrices.reduce((sum, tp) => sum + Math.abs(tp - smaTP), 0) / 20;
-        const cci = (((high + low + close) / 3) - smaTP) / (0.015 * meanDeviation);
-        indicators.cci.push(cci);
-      } else {
-        indicators.cci.push(0);
-      }
-
-      price = close;
     }
-
-    return { data, indicators };
+    return sma;
   };
 
   const calculateEMA = (prices: number[], period: number): number[] => {
+    const ema = [];
     const multiplier = 2 / (period + 1);
-    const ema = [prices[0]];
+    
+    ema[0] = prices[0];
     
     for (let i = 1; i < prices.length; i++) {
-      ema.push((prices[i] - ema[i - 1]) * multiplier + ema[i - 1]);
+      ema[i] = (prices[i] * multiplier) + (ema[i - 1] * (1 - multiplier));
     }
     
     return ema;
   };
+
 
   const getMainChartData = () => {
     if (!marketData.length) return null;

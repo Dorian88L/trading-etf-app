@@ -41,11 +41,11 @@ stop_process "Frontend" "logs/frontend.pid"
 stop_process "Backend" "logs/backend.pid"
 
 # Arrêter tous les processus restants sur les ports utilisés
-echo "🔍 Nettoyage des processus sur les ports 80 et 8443..."
+echo "🔍 Nettoyage des processus sur les ports 3000 et 8443..."
 
 # Port 80 (frontend)
-if lsof -ti:80 >/dev/null 2>&1; then
-    echo "🔄 Arrêt des processus sur le port 80..."
+if lsof -ti:3000 >/dev/null 2>&1; then
+    echo "🔄 Arrêt des processus sur le port 3000..."
     sudo kill -9 $(lsof -ti:80) 2>/dev/null || true
 fi
 

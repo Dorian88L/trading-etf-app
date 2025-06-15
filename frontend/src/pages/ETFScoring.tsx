@@ -66,82 +66,90 @@ const ETFScoring: React.FC = () => {
 
   const loadTopETFs = async () => {
     try {
-      const response = await fetch('/api/v1/etf-scoring/ranking?limit=20', {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8443';
+      const response = await fetch(`${apiUrl}/api/v1/etf-scoring/etfs/scores?limit=${filters.limit}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
         }
       });
 
       if (response.ok) {
         const data = await response.json();
-        setTopETFs(data);
+        if (data.top_etfs && Array.isArray(data.top_etfs)) {
+          // Convertir les données de l'API au format attendu
+          const formattedETFs = data.top_etfs.map((etf: any, index: number) => ({
+            etf_isin: etf.isin || `UNKNOWN_${index}`,
+            final_score: etf.final_score || 0,
+            technical_score: etf.technical_score || 0,
+            fundamental_score: etf.fundamental_score || 0,
+            risk_score: etf.risk_score || 0,
+            momentum_score: etf.momentum_score || 0,
+            timestamp: etf.last_update || new Date().toISOString(),
+            rating: etf.final_score >= 80 ? 'A+' : etf.final_score >= 70 ? 'A' : etf.final_score >= 60 ? 'B+' : etf.final_score >= 50 ? 'B' : 'C',
+            confidence: 85 + Math.random() * 15, // Simuler confidence pour l'instant
+            rank: index + 1,
+            percentile: Math.round(((data.top_etfs.length - index) / data.top_etfs.length) * 100 * 10) / 10,
+            symbol: etf.symbol,
+            name: etf.name,
+            current_price: etf.current_price,
+            currency: etf.currency,
+            sector: etf.sector,
+            change_percent: etf.change_percent
+          }));
+          
+          setTopETFs(formattedETFs);
+          console.log(`✅ Chargé ${formattedETFs.length} ETFs avec scores réels`);
+        } else {
+          throw new Error('Format de données inattendu');
+        }
       } else {
-        // Fallback avec données mockées
-        setTopETFs(generateMockETFScores(20));
+        throw new Error(`Erreur API: ${response.status}`);
       }
     } catch (error) {
-      console.log('API non disponible, utilisation de données mockées');
-      setTopETFs(generateMockETFScores(20));
+      console.error('Erreur chargement scores ETF:', error);
+      setError('Impossible de charger les scores ETF depuis l\'API');
+      setTopETFs([]); // Plutôt que des données mockées, montrer que l'API est indisponible
     }
   };
 
   const loadSectorAnalysis = async () => {
     try {
-      const response = await fetch('/api/v1/etf-scoring/sector-analysis', {
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8443';
+      const response = await fetch(`${apiUrl}/api/v1/etf-scoring/sectors/analysis`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
         }
       });
 
       if (response.ok) {
-        const result = await response.json();
-        setSectorAnalysis(result.data.sector_analysis);
+        const data = await response.json();
+        if (data.sector_performance && Array.isArray(data.sector_performance)) {
+          // Convertir les données de l'API au format attendu
+          const analysis: SectorAnalysis = {};
+          
+          data.sector_performance.forEach((sector: any) => {
+            analysis[sector.sector] = {
+              average_score: sector.average_score || 0,
+              average_risk_score: 75 + Math.random() * 20, // Simuler pour l'instant
+              average_momentum: sector.average_change_percent || 0,
+              etf_count: sector.etfs_count || 0,
+              top_etf: null // À implémenter si nécessaire
+            };
+          });
+          
+          setSectorAnalysis(analysis);
+          console.log(`✅ Chargé analyse de ${Object.keys(analysis).length} secteurs`);
+        } else {
+          throw new Error('Format de données inattendu');
+        }
       } else {
-        // Fallback avec données mockées
-        setSectorAnalysis(generateMockSectorAnalysis());
+        throw new Error(`Erreur API: ${response.status}`);
       }
     } catch (error) {
-      console.log('API non disponible, utilisation de données mockées');
-      setSectorAnalysis(generateMockSectorAnalysis());
+      console.error('Erreur chargement analyse sectorielle:', error);
+      setError('Impossible de charger l\'analyse sectorielle depuis l\'API');
+      setSectorAnalysis({}); // Plutôt que des données mockées
     }
-  };
-
-  const generateMockETFScores = (count: number): ETFScore[] => {
-    const etfs = ['SPY', 'QQQ', 'VTI', 'VEA', 'VWO', 'IWM', 'TLT', 'GLD', 'USO', 'FXI', 'EFA', 'EEM', 'RSP', 'DIA', 'MDY'];
-    // const sectors = ['Technology', 'Healthcare', 'Financial', 'Energy', 'Consumer', 'Industrial', 'Diversified'];
-    
-    return Array.from({ length: count }, (_, i) => ({
-      etf_isin: etfs[i % etfs.length] + Math.random().toString(36).substr(2, 5),
-      final_score: Math.round((85 - i * 2 + Math.random() * 10) * 100) / 100,
-      technical_score: Math.round((80 + Math.random() * 20) * 100) / 100,
-      fundamental_score: Math.round((70 + Math.random() * 30) * 100) / 100,
-      risk_score: Math.round((60 + Math.random() * 40) * 100) / 100,
-      momentum_score: Math.round((50 + Math.random() * 50) * 100) / 100,
-      timestamp: new Date().toISOString(),
-      rating: ['A+', 'A', 'B+', 'B', 'B-'][Math.floor(i / 4)] || 'C',
-      confidence: Math.round((80 + Math.random() * 20) * 100) / 100,
-      rank: i + 1,
-      percentile: Math.round(((count - i) / count) * 100 * 10) / 10
-    }));
-  };
-
-  const generateMockSectorAnalysis = (): SectorAnalysis => {
-    const sectors = ['Technology', 'Healthcare', 'Financial', 'Energy', 'Consumer', 'Industrial'];
-    const analysis: SectorAnalysis = {};
-    
-    sectors.forEach((sector, i) => {
-      analysis[sector] = {
-        average_score: Math.round((80 - i * 3 + Math.random() * 8) * 100) / 100,
-        average_risk_score: Math.round((70 + Math.random() * 20) * 100) / 100,
-        average_momentum: Math.round((60 + Math.random() * 30) * 100) / 100,
-        etf_count: Math.floor(Math.random() * 15) + 5,
-        top_etf: generateMockETFScores(1)[0]
-      };
-    });
-    
-    return analysis;
   };
 
   const performScreening = async () => {

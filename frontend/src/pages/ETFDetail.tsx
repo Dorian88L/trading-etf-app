@@ -70,41 +70,73 @@ const ETFDetail: React.FC = () => {
   const fetchMarketData = async () => {
     try {
       setLoading(true);
-      // Simuler des données de marché pour la démo
-      const mockData = generateMockMarketData();
-      setMarketData(mockData);
+      
+      if (!symbol) {
+        setError('Symbole ETF manquant');
+        return;
+      }
+
+      // Récupérer les données historiques réelles depuis la nouvelle API
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8443'}/api/v1/historical/etf/${symbol}/historical?period=3mo&include_indicators=true`);
+      
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.historical_data && data.historical_data.length > 0) {
+        // Convertir les données au format attendu par le graphique
+        const formattedData = data.historical_data.map((point: any) => ({
+          date: new Date(point.timestamp).toISOString().split('T')[0],
+          open: point.open_price,
+          high: point.high_price,
+          low: point.low_price,
+          close: point.close_price,
+          volume: point.volume
+        }));
+        
+        setMarketData(formattedData);
+        
+        // Mettre à jour les indicateurs techniques s'ils sont disponibles
+        if (data.technical_indicators) {
+          setIndicatorData(data.technical_indicators);
+        }
+      } else {
+        throw new Error('Aucune donnée historique disponible');
+      }
+      
     } catch (err: any) {
       console.error('Erreur lors du chargement des données de marché:', err);
-      setError('Impossible de charger les données de marché');
+      setError(`Impossible de charger les données de marché: ${err.message}`);
+      
+      // Fallback: essayer de récupérer des données simplifiées
+      try {
+        const fallbackResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8443'}/api/v1/historical/etf/${symbol}/price-history?days=90`);
+        
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          
+          if (fallbackData.chart_data && fallbackData.chart_data.length > 0) {
+            const formattedData = fallbackData.chart_data.map((point: any) => ({
+              date: new Date(point.date).toISOString().split('T')[0],
+              open: point.price,
+              high: point.price * 1.02,
+              low: point.price * 0.98,
+              close: point.price,
+              volume: point.volume || 100000
+            }));
+            
+            setMarketData(formattedData);
+            setError(''); // Clear error if fallback works
+          }
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback aussi échoué:', fallbackErr);
+      }
     } finally {
       setLoading(false);
     }
-  };
-
-  const generateMockMarketData = () => {
-    const data = [];
-    const basePrice = 100;
-    let currentPrice = basePrice;
-    
-    for (let i = 0; i < 100; i++) {
-      const change = (Math.random() - 0.5) * 4;
-      currentPrice += change;
-      
-      const high = currentPrice + Math.random() * 2;
-      const low = currentPrice - Math.random() * 2;
-      const volume = Math.floor(Math.random() * 1000000) + 100000;
-      
-      data.push({
-        date: new Date(Date.now() - (99 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        open: currentPrice - change + (Math.random() - 0.5),
-        high: Math.max(high, currentPrice),
-        low: Math.min(low, currentPrice),
-        close: currentPrice,
-        volume
-      });
-    }
-    
-    return data;
   };
 
   const handleIndicatorChange = (indicators: any) => {

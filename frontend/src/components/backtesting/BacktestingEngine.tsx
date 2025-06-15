@@ -136,8 +136,9 @@ const BacktestingEngine: React.FC<BacktestingEngineProps> = ({ onResultsChange }
       console.log('Real market data not available, using simulated data');
     }
     
-    // Fallback to mock data
-    return generateMockMarketData(symbol, startDate, endDate);
+    // Fallback: retourner des données vides plutôt que des données mockées
+    console.warn(`Pas de données historiques disponibles pour ${symbol}`);
+    return [];
   };
 
   const generateMockMarketData = (symbol: string, startDate: string, endDate: string) => {

@@ -84,11 +84,20 @@ def add_to_watchlist(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Add ETF to watchlist"""
+    """Add ETF to watchlist with ISIN validation"""
+    # Validation sécurisée de l'ISIN
+    from app.core.validators import validate_isin
+    try:
+        validated_isin = validate_isin(etf_isin)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"ISIN invalide: {str(e)}"
+        )
     # Check if already in watchlist
     existing = db.query(Watchlist).filter(
         Watchlist.user_id == current_user.id,
-        Watchlist.etf_isin == etf_isin
+        Watchlist.etf_isin == validated_isin
     ).first()
     
     if existing:
@@ -99,7 +108,7 @@ def add_to_watchlist(
     
     watchlist_item = Watchlist(
         user_id=current_user.id,
-        etf_isin=etf_isin
+        etf_isin=validated_isin
     )
     db.add(watchlist_item)
     db.commit()

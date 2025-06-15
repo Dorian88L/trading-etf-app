@@ -89,8 +89,24 @@ def refresh_token(
     refresh_token: str,
     db: Session = Depends(get_db)
 ):
-    """Refresh access token"""
-    user_id = verify_token(refresh_token, token_type="refresh")
+    """Refresh access token with enhanced security validation"""
+    # Validation préliminaire du format du token
+    if not refresh_token or len(refresh_token.strip()) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token required"
+        )
+    
+    # Tentative de vérification du token avec gestion d'erreur sécurisée
+    try:
+        user_id = verify_token(refresh_token, token_type="refresh")
+    except Exception as e:
+        # Log de l'erreur pour monitoring de sécurité (sans exposer les détails)
+        logger.warning(f"Tentative de refresh token invalide: {type(e).__name__}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
     
     if user_id is None:
         raise HTTPException(
@@ -98,7 +114,19 @@ def refresh_token(
             detail="Invalid refresh token"
         )
     
-    user = db.query(User).filter(User.id == user_id).first()
+    # Validation sécurisée de l'UUID avec protection contre les injections
+    try:
+        import uuid
+        uuid_user_id = uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        logger.warning(f"Tentative d'accès avec UUID invalide: {user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user identifier"
+        )
+    
+    # Requête sécurisée avec UUID validé
+    user = db.query(User).filter(User.id == uuid_user_id).first()
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
