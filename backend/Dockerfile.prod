@@ -1,0 +1,46 @@
+# Dockerfile pour la production (Backend FastAPI)
+FROM python:3.11-slim
+
+# Variables d'environnement
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV ENVIRONMENT=production
+
+# Répertoire de travail
+WORKDIR /app
+
+# Installer les dépendances système
+RUN apt-get update && apt-get install -y \
+    gcc \
+    python3-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Créer un utilisateur non-root pour la sécurité
+RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
+USER app
+
+# Copier les requirements
+COPY --chown=app:app requirements.txt .
+
+# Installer les dépendances Python
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# Ajouter le répertoire local de pip au PATH
+ENV PATH="/home/app/.local/bin:${PATH}"
+
+# Copier le code source
+COPY --chown=app:app . .
+
+# Créer le dossier des logs
+RUN mkdir -p logs
+
+# Exposer le port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Commande de démarrage pour la production
+CMD ["uvicorn", "app.main_production:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

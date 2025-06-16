@@ -108,3 +108,6 @@ ssl/private/
 
 # Windows PowerShell script (contient des configs locales)
 configure-wsl-ports.ps1
+
+# Data directory (Docker volumes, databases)
+data/

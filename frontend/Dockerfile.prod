@@ -1,0 +1,36 @@
+# Dockerfile pour la production (Frontend React)
+FROM node:18-alpine AS builder
+
+# Répertoire de travail
+WORKDIR /app
+
+# Copier package.json et package-lock.json
+COPY package*.json ./
+
+# Installer les dépendances
+RUN npm ci --only=production
+
+# Copier le code source
+COPY . .
+
+# Build de l'application pour la production
+RUN npm run build
+
+# Stage de production avec Nginx
+FROM nginx:alpine
+
+# Copier la configuration Nginx personnalisée
+COPY nginx.prod.conf /etc/nginx/nginx.conf
+
+# Copier les fichiers buildés
+COPY --from=builder /app/build /usr/share/nginx/html
+
+# Exposer le port
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost || exit 1
+
+# Démarrer Nginx
+CMD ["nginx", "-g", "daemon off;"]

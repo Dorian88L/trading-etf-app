@@ -1,0 +1,11 @@
+tls:
+  certificates:
+    - certFile: /etc/ssl/certs/investeclaire.fr.crt
+      keyFile: /etc/ssl/certs/investeclaire.fr.key
+      stores:
+        - default
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/ssl/certs/investeclaire.fr.crt
+        keyFile: /etc/ssl/certs/investeclaire.fr.key

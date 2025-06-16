@@ -90,7 +90,7 @@ class ProductionSettings(BaseSettings):
             self.BACKEND_CORS_ORIGINS = [origin.strip() for origin in cors_origins.split(",")]
         
         # Les ALLOWED_HOSTS sont maintenant traités directement par le middleware
-        self.ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1")
+        self.ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,localhost:8443,127.0.0.1:8443,api.investeclaire.fr")
     
     def _validate_critical_settings(self):
         """Valide que toutes les variables critiques sont configurées"""
