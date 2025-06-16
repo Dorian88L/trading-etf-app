@@ -35,7 +35,7 @@ class ProductionSettings(BaseSettings):
     
     # CORS - Strictement configuré pour la production
     BACKEND_CORS_ORIGINS: List[str] = []
-    ALLOWED_HOSTS: Optional[List[str]] = None
+    ALLOWED_HOSTS: Optional[str] = None
     
     # External APIs - Vraies clés requises
     ALPHA_VANTAGE_API_KEY: Optional[str] = os.getenv("ALPHA_VANTAGE_API_KEY")
@@ -89,11 +89,8 @@ class ProductionSettings(BaseSettings):
         if cors_origins:
             self.BACKEND_CORS_ORIGINS = [origin.strip() for origin in cors_origins.split(",")]
         
-        allowed_hosts = os.getenv("ALLOWED_HOSTS", "")
-        if allowed_hosts:
-            self.ALLOWED_HOSTS = [host.strip() for host in allowed_hosts.split(",")]
-        else:
-            self.ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+        # Les ALLOWED_HOSTS sont maintenant traités directement par le middleware
+        self.ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1")
     
     def _validate_critical_settings(self):
         """Valide que toutes les variables critiques sont configurées"""

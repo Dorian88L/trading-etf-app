@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import json
 import yfinance as yf
 from app.core.config import settings
-from app.core.cache import cache_manager
+from app.core.cache import cache
 import logging
 
 logger = logging.getLogger(__name__)

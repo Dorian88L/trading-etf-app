@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.services.realtime_market_service import realtime_service
+from app.services.smart_market_data import get_smart_market_data_service, SmartMarketDataService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -61,13 +62,16 @@ async def websocket_market_data(websocket: WebSocket):
 @router.get("/realtime/{symbol}")
 async def get_realtime_quote(
     symbol: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    smart_service: SmartMarketDataService = Depends(get_smart_market_data_service),
+    db: Session = Depends(get_db)
 ):
     """
-    Récupère la cotation temps réel d'un symbole
+    Récupère la cotation temps réel d'un symbole avec cache intelligent
     """
     try:
-        data = await realtime_service.get_realtime_data(symbol.upper())
+        # Utiliser le service intelligent qui vérifie d'abord les données récentes en base
+        data = await smart_service.get_realtime_data_smart(symbol.upper(), db)
         
         if not data:
             raise HTTPException(status_code=404, detail=f"Symbole {symbol} non trouvé")
@@ -75,7 +79,8 @@ async def get_realtime_quote(
         return {
             'status': 'success',
             'data': data,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.utcnow().isoformat(),
+            'source': 'smart_cache'  # Indicateur de la source
         }
         
     except HTTPException:
@@ -86,10 +91,12 @@ async def get_realtime_quote(
 @router.get("/realtime/multiple")
 async def get_multiple_quotes(
     symbols: str = Query(..., description="Symboles séparés par des virgules"),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    smart_service: SmartMarketDataService = Depends(get_smart_market_data_service),
+    db: Session = Depends(get_db)
 ):
     """
-    Récupère les cotations de plusieurs symboles
+    Récupère les cotations de plusieurs symboles avec optimisation intelligente
     """
     try:
         symbol_list = [s.strip().upper() for s in symbols.split(',')]
@@ -97,16 +104,14 @@ async def get_multiple_quotes(
         if len(symbol_list) > 20:
             raise HTTPException(status_code=400, detail="Maximum 20 symboles autorisés")
         
-        results = {}
-        for symbol in symbol_list:
-            data = await realtime_service.get_realtime_data(symbol)
-            if data:
-                results[symbol] = data
+        # Utiliser le service intelligent pour traitement en lot optimisé
+        results = await smart_service.get_multiple_realtime_smart(symbol_list, db)
         
         return {
             'status': 'success',
             'data': results,
             'count': len(results),
+            'source': 'smart_cache',
             'timestamp': datetime.utcnow().isoformat()
         }
         

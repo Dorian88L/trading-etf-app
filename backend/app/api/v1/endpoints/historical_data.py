@@ -8,8 +8,11 @@ from datetime import datetime, timedelta
 import logging
 
 from app.services.real_market_data import get_real_market_data_service, RealMarketDataService
+from app.services.smart_market_data import get_smart_market_data_service, SmartMarketDataService
 from app.services.technical_analysis import TechnicalAnalyzer
 from app.services.signal_generator import get_signal_generator_service, TradingSignalGenerator
+from app.core.database import get_db
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +23,15 @@ async def get_etf_historical_data(
     symbol: str,
     period: str = Query("1mo", description="Period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)"),
     include_indicators: bool = Query(False, description="Include technical indicators"),
-    market_service: RealMarketDataService = Depends(get_real_market_data_service)
+    smart_service: SmartMarketDataService = Depends(get_smart_market_data_service),
+    db: Session = Depends(get_db)
 ):
     """
-    Récupère les données historiques d'un ETF avec indicateurs techniques optionnels
+    Récupère les données historiques d'un ETF avec cache intelligent et sauvegarde automatique
     """
     try:
-        # Récupérer les données historiques réelles
-        historical_data = market_service.get_historical_data(symbol, period)
+        # Utiliser le service intelligent qui vérifie d'abord en base
+        historical_data = await smart_service.get_historical_data_smart(symbol, period, db)
         
         if not historical_data:
             raise HTTPException(

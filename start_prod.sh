@@ -68,19 +68,39 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Construire le frontend pour la production
-echo "🔨 Construction du frontend React pour la production..."
+# Build du frontend React pour la production
+echo "🔨 Build du frontend React pour la production..."
 cd frontend
-npm run build || {
-    echo "❌ Échec de la construction du frontend"
+npm run build
+if [ $? -ne 0 ]; then
+    echo "❌ Échec du build frontend"
     exit 1
-}
+fi
+echo "✅ Build frontend terminé"
 cd ..
 
 # Démarrer nginx avec SSL
 echo "🌐 Démarrage de nginx avec SSL (PRODUCTION)..."
-sudo nginx -c /home/dorian/trading-etf-app/nginx_complete_ssl.conf
-echo "✅ Nginx démarré avec configuration SSL"
+
+# Arrêter nginx système s'il tourne
+sudo systemctl stop nginx 2>/dev/null || true
+sudo pkill -f nginx 2>/dev/null || true
+sleep 2
+
+# Supprimer les configs de dev et activer la config SSL
+sudo rm -f /etc/nginx/sites-enabled/frontend-http
+sudo rm -f /etc/nginx/sites-enabled/api-8443
+sudo ln -sf /etc/nginx/sites-available/ssl-config /etc/nginx/sites-enabled/ssl-config
+
+# Tester et démarrer nginx système avec config SSL
+sudo nginx -t
+if [ $? -eq 0 ]; then
+    sudo systemctl start nginx
+    echo "✅ Nginx démarré avec configuration SSL système"
+else
+    echo "❌ Échec test configuration nginx"
+    exit 1
+fi
 
 echo ""
 # Obtenir l'IP publique
@@ -93,6 +113,7 @@ echo "  Frontend: https://investeclaire.fr"
 echo "  Backend:  https://api.investeclaire.fr"
 echo ""
 echo "Accès local (pour debug):"
+echo "  Frontend: https://localhost (si certificat valide)"
 echo "  Backend:  http://localhost:8443"
 echo ""
 echo "⚠️  IMPORTANT: Assurez-vous que les ports 80, 443 et 8443 sont ouverts dans votre firewall"

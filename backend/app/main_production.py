@@ -59,9 +59,10 @@ if settings.ENVIRONMENT == "production":
 
 # Trusted Host Middleware
 if hasattr(settings, 'ALLOWED_HOSTS') and settings.ALLOWED_HOSTS:
+    allowed_hosts = [host.strip() for host in settings.ALLOWED_HOSTS.split(",")]
     app.add_middleware(
         TrustedHostMiddleware, 
-        allowed_hosts=settings.ALLOWED_HOSTS
+        allowed_hosts=allowed_hosts
     )
 
 # CORS Middleware avec configuration stricte
