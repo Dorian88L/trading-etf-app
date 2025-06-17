@@ -1,67 +1,130 @@
-<!DOCTYPE html>
-<html>
+<\!DOCTYPE html>
+<html lang="fr">
 <head>
-    <title>Test Frontend API</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Frontend</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+    </style>
 </head>
 <body>
-    <h1>Test API Frontend</h1>
-    <form id="signupForm">
-        <input type="email" id="email" placeholder="Email" required><br><br>
-        <input type="password" id="password" placeholder="Password" required><br><br>
-        <input type="text" id="fullName" placeholder="Full Name" required><br><br>
-        <button type="submit">Test Signup</button>
-    </form>
+    <h1>Test API Trading ETF</h1>
     
-    <div id="result"></div>
+    <div>
+        <h3>Test de connexion</h3>
+        <input type="email" id="email" placeholder="Email" value="admin@investeclaire.fr">
+        <input type="password" id="password" placeholder="Password" value="Admin123#">
+        <button onclick="testLogin()">Tester Login</button>
+        <button onclick="testLoginWrong()">Tester Login (mauvais mdp)</button>
+    </div>
     
+    <div>
+        <h3>Tests API</h3>
+        <button onclick="testHealth()">Test Health</button>
+        <button onclick="testETFs()">Test ETFs Public</button>
+    </div>
+    
+    <div id="results"></div>
+
     <script>
-        document.getElementById('signupForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const fullName = document.getElementById('fullName').value;
-            
-            const apiUrl = 'https://api.investeclaire.fr/api/v1/auth/register';
-            
-            document.getElementById('result').innerHTML = `
-                <p><strong>Testing API URL:</strong> ${apiUrl}</p>
-                <p>Sending request...</p>
-            `;
-            
+        const API_BASE_URL = 'https://api.investeclaire.fr';
+        
+        function addResult(title, content, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.innerHTML = `<strong>${title}</strong><br><pre>${JSON.stringify(content, null, 2)}</pre>`;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        async function testHealth() {
             try {
-                const response = await fetch(apiUrl, {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.json();
+                addResult('Health Check', { status: response.status, data });
+            } catch (error) {
+                addResult('Health Check Error', { error: error.message }, true);
+            }
+        }
+        
+        async function testLogin() {
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                const formData = new URLSearchParams();
+                formData.append('username', email);
+                formData.append('password', password);
+                
+                const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: JSON.stringify({
-                        email: email,
-                        password: password,
-                        full_name: fullName
-                    })
+                    body: formData
                 });
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    document.getElementById('result').innerHTML = `
-                        <p style="color: green;"><strong>SUCCESS!</strong></p>
-                        <p>Response: ${JSON.stringify(data, null, 2)}</p>
-                    `;
-                } else {
-                    const errorData = await response.text();
-                    document.getElementById('result').innerHTML = `
-                        <p style="color: red;"><strong>ERROR ${response.status}:</strong></p>
-                        <p>${errorData}</p>
-                    `;
-                }
+                const data = await response.json();
+                addResult('Login Test', { 
+                    status: response.status, 
+                    success: response.ok,
+                    data 
+                }, \!response.ok);
             } catch (error) {
-                document.getElementById('result').innerHTML = `
-                    <p style="color: red;"><strong>NETWORK ERROR:</strong></p>
-                    <p>${error.message}</p>
-                `;
+                addResult('Login Error', { error: error.message }, true);
             }
-        });
+        }
+        
+        async function testLoginWrong() {
+            try {
+                const formData = new URLSearchParams();
+                formData.append('username', 'test@example.com');
+                formData.append('password', 'wrongpassword');
+                
+                const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                addResult('Login Test (Wrong Password)', { 
+                    status: response.status, 
+                    success: response.ok,
+                    data 
+                }, \!response.ok);
+            } catch (error) {
+                addResult('Login Error', { error: error.message }, true);
+            }
+        }
+        
+        async function testETFs() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/v1/real-market/public/etfs-preview`);
+                const data = await response.json();
+                addResult('ETFs Public', { 
+                    status: response.status, 
+                    count: data.count,
+                    sample: data.data ? data.data.slice(0, 2) : 'No data'
+                });
+            } catch (error) {
+                addResult('ETFs Error', { error: error.message }, true);
+            }
+        }
+        
+        // Test automatique au chargement
+        window.onload = () => {
+            testHealth();
+        };
     </script>
 </body>
 </html>
+EOF < /dev/null

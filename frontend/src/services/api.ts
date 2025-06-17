@@ -79,7 +79,7 @@ api.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (refreshToken) {
-          const response = await api.post('/auth/refresh', {
+          const response = await api.post('/api/v1/auth/refresh', {
             refresh_token: refreshToken
           });
           
@@ -112,50 +112,50 @@ export const authAPI = {
     formData.append('username', credentials.email);
     formData.append('password', credentials.password);
     
-    const response = await api.post('/auth/login', formData, {
+    const response = await api.post('/api/v1/auth/login', formData, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
     return response.data;
   },
   
   register: async (userData: RegisterData): Promise<User> => {
-    const response = await api.post('/auth/register', userData);
+    const response = await api.post('/api/v1/auth/register', userData);
     return response.data;
   },
   
   refreshToken: async (refreshToken: string): Promise<AuthTokens> => {
-    const response = await api.post('/auth/refresh', { refresh_token: refreshToken });
+    const response = await api.post('/api/v1/auth/refresh', { refresh_token: refreshToken });
     return response.data;
   },
 };
 
 export const userAPI = {
   getProfile: async (): Promise<User> => {
-    const response = await api.get('/user/profile');
+    const response = await api.get('/api/v1/user/profile');
     return response.data;
   },
   
   getPreferences: async (): Promise<UserPreferences> => {
-    const response = await api.get('/user/preferences');
+    const response = await api.get('/api/v1/user/preferences');
     return response.data;
   },
   
   updatePreferences: async (preferences: Partial<UserPreferences>): Promise<UserPreferences> => {
-    const response = await api.put('/user/preferences', preferences);
+    const response = await api.put('/api/v1/user/preferences', preferences);
     return response.data;
   },
   
   getWatchlist: async (): Promise<WatchlistItem[]> => {
-    const response = await api.get('/user/watchlist');
+    const response = await api.get('/api/v1/user/watchlist');
     return response.data;
   },
   
   addToWatchlist: async (etfIsin: string): Promise<void> => {
-    await api.post('/user/watchlist', { etf_isin: etfIsin });
+    await api.post('/api/v1/user/watchlist', { etf_isin: etfIsin });
   },
   
   removeFromWatchlist: async (etfIsin: string): Promise<void> => {
-    await api.delete(`/user/watchlist/${etfIsin}`);
+    await api.delete(`/api/v1/user/watchlist/${etfIsin}`);
   },
 };
 
@@ -166,7 +166,7 @@ export const marketAPI = {
     sector?: string; 
     currency?: string 
   }): Promise<ETF[]> => {
-    const response = await api.get('/market/etfs', { params });
+    const response = await api.get('/api/v1/market/etfs', { params });
     return response.data;
   },
   
@@ -183,7 +183,7 @@ export const marketAPI = {
     
     try {
       // Essayer d'abord l'endpoint avec authentification
-      const response = await api.get('/real-market/real-etfs', { params: symbols ? { symbols } : {} });
+      const response = await api.get('/api/v1/real-market/real-etfs', { params: symbols ? { symbols } : {} });
       
       // Mettre en cache pour 30 secondes
       cache.set(cacheKey, response.data, 30);
@@ -193,7 +193,7 @@ export const marketAPI = {
       // Si échec d'authentification, utiliser l'endpoint public
       if (error.response?.status === 401) {
         console.log('🔄 Fallback vers l\'endpoint public etfs-preview');
-        const fallbackResponse = await api.get('/real-market/public/etfs-preview');
+        const fallbackResponse = await api.get('/api/v1/real-market/public/etfs-preview');
         
         // Mettre en cache pour 30 secondes
         cache.set(cacheKey, fallbackResponse.data, 30);
@@ -204,7 +204,7 @@ export const marketAPI = {
   },
   
   getETF: async (isin: string): Promise<ETF> => {
-    const response = await api.get(`/market/etf/${isin}`);
+    const response = await api.get(`/api/v1/market/etf/${isin}`);
     return response.data;
   },
   
@@ -212,7 +212,7 @@ export const marketAPI = {
     isin: string, 
     params?: { start_date?: string; end_date?: string; limit?: number }
   ): Promise<MarketData[]> => {
-    const response = await api.get(`/market/etf/${isin}/market-data`, { params });
+    const response = await api.get(`/api/v1/market/etf/${isin}/market-data`, { params });
     return response.data;
   },
   
@@ -220,17 +220,17 @@ export const marketAPI = {
     isin: string,
     params?: { start_date?: string; end_date?: string; limit?: number }
   ): Promise<TechnicalIndicators[]> => {
-    const response = await api.get(`/market/etf/${isin}/technical-indicators`, { params });
+    const response = await api.get(`/api/v1/market/etf/${isin}/technical-indicators`, { params });
     return response.data;
   },
   
   getSectors: async (): Promise<string[]> => {
-    const response = await api.get('/market/sectors');
+    const response = await api.get('/api/v1/market/sectors');
     return response.data;
   },
   
   getIndices: async (): Promise<any[]> => {
-    const response = await api.get('/market/indices');
+    const response = await api.get('/api/v1/market/indices');
     return response.data;
   },
 
@@ -243,51 +243,51 @@ export const marketAPI = {
   },
 
   getAvailableETFs: async (): Promise<any> => {
-    const response = await api.get('/real-market/available-etfs');
+    const response = await api.get('/api/v1/real-market/available-etfs');
     return response.data;
   },
 
   getMarketStatus: async (): Promise<any> => {
-    const response = await api.get('/real-market/market-status');
+    const response = await api.get('/api/v1/real-market/market-status');
     return response.data;
   },
 
   getEnhancedIndices: async (): Promise<any> => {
-    const response = await api.get('/real-market/enhanced-indices');
+    const response = await api.get('/api/v1/real-market/enhanced-indices');
     return response.data;
   },
 };
 
 export const signalsAPI = {
   getSignals: async (filters?: SignalFilters & PaginationParams): Promise<any> => {
-    const response = await api.get('/signals', { params: filters });
+    const response = await api.get('/api/v1/signals', { params: filters });
     return response.data;
   },
   
   getActiveSignals: async (filters?: SignalFilters & PaginationParams): Promise<Signal[]> => {
-    const response = await api.get('/signals/active', { params: filters });
+    const response = await api.get('/api/v1/signals/active', { params: filters });
     return response.data;
   },
   
   getSignalHistory: async (filters?: SignalFilters & PaginationParams): Promise<Signal[]> => {
-    const response = await api.get('/signals/history', { params: filters });
+    const response = await api.get('/api/v1/signals/history', { params: filters });
     return response.data;
   },
   
   getSignal: async (signalId: string): Promise<Signal> => {
-    const response = await api.get(`/signals/${signalId}`);
+    const response = await api.get(`/api/v1/signals/${signalId}`);
     return response.data;
   },
   
   getLatestSignalsForETF: async (isin: string, limit?: number): Promise<Signal[]> => {
-    const response = await api.get(`/signals/etf/${isin}/latest`, { 
+    const response = await api.get(`/api/v1/signals/etf/${isin}/latest`, { 
       params: { limit } 
     });
     return response.data;
   },
   
   getTopPerformingSignals: async (params?: { limit?: number; days?: number }): Promise<any[]> => {
-    const response = await api.get('/signals/top-performers', { params });
+    const response = await api.get('/api/v1/signals/top-performers', { params });
     return response.data;
   },
 
@@ -306,41 +306,41 @@ export const signalsAPI = {
   getWatchlistSignals: async (params?: {
     min_confidence?: number;
   }): Promise<any> => {
-    const response = await api.get('/advanced-signals/signals/watchlist', { params });
+    const response = await api.get('/api/v1/advanced-signals/signals/watchlist', { params });
     return response.data;
   },
 
   getSignalStatistics: async (params?: {
     days_back?: number;
   }): Promise<any> => {
-    const response = await api.get('/advanced-signals/signals/statistics', { params });
+    const response = await api.get('/api/v1/advanced-signals/signals/statistics', { params });
     return response.data;
   },
 };
 
 export const portfolioAPI = {
   getPortfolios: async (): Promise<any> => {
-    const response = await api.get('/portfolio');
+    const response = await api.get('/api/v1/portfolio');
     return response.data;
   },
   
   getPortfolioPositions: async (portfolioId: string): Promise<any> => {
-    const response = await api.get(`/portfolio/${portfolioId}/positions`);
+    const response = await api.get(`/api/v1/portfolio/${portfolioId}/positions`);
     return response.data;
   },
   
   getPortfolioTransactions: async (portfolioId: string): Promise<any> => {
-    const response = await api.get(`/portfolio/${portfolioId}/transactions`);
+    const response = await api.get(`/api/v1/portfolio/${portfolioId}/transactions`);
     return response.data;
   },
   
   getPortfolioSummary: async (portfolioId: string): Promise<any> => {
-    const response = await api.get(`/portfolio/${portfolioId}/summary`);
+    const response = await api.get(`/api/v1/portfolio/${portfolioId}/summary`);
     return response.data;
   },
   
   getPositions: async (): Promise<Position[]> => {
-    const response = await api.get('/portfolio/positions');
+    const response = await api.get('/api/v1/portfolio/positions');
     return response.data;
   },
   
@@ -352,51 +352,51 @@ export const portfolioAPI = {
     price: number;
     fees?: number;
   }): Promise<Transaction> => {
-    const response = await api.post('/portfolio/transaction', transaction);
+    const response = await api.post('/api/v1/portfolio/transaction', transaction);
     return response.data;
   },
   
   getPerformance: async (): Promise<any> => {
-    const response = await api.get('/portfolio/performance');
+    const response = await api.get('/api/v1/portfolio/performance');
     return response.data;
   },
   
   createPortfolio: async (name: string): Promise<Portfolio> => {
-    const response = await api.post('/portfolio/portfolios', { name });
+    const response = await api.post('/api/v1/portfolio/portfolios', { name });
     return response.data;
   },
   
   getTransactions: async (params?: PaginationParams): Promise<Transaction[]> => {
-    const response = await api.get('/portfolio/transactions', { params });
+    const response = await api.get('/api/v1/portfolio/transactions', { params });
     return response.data;
   },
 
   // Portfolio Management API
   getPortfolioManagement: {
     getPortfolios: async (): Promise<any> => {
-      const response = await api.get('/portfolio-management/portfolios');
+      const response = await api.get('/api/v1/portfolio-management/portfolios');
       return response.data;
     },
     
     getPortfolioDetails: async (portfolioId: string): Promise<any> => {
-      const response = await api.get(`/portfolio-management/portfolios/${portfolioId}`);
+      const response = await api.get(`/api/v1/portfolio-management/portfolios/${portfolioId}`);
       return response.data;
     },
     
     getPortfolioTransactions: async (portfolioId: string, params?: { limit?: number; offset?: number }): Promise<any> => {
-      const response = await api.get(`/portfolio-management/portfolios/${portfolioId}/transactions`, { params });
+      const response = await api.get(`/api/v1/portfolio-management/portfolios/${portfolioId}/transactions`, { params });
       return response.data;
     },
     
     getPortfolioPerformance: async (portfolioId: string, period: string = '1M'): Promise<any> => {
-      const response = await api.get(`/portfolio-management/portfolios/${portfolioId}/performance`, { 
+      const response = await api.get(`/api/v1/portfolio-management/portfolios/${portfolioId}/performance`, { 
         params: { period } 
       });
       return response.data;
     },
     
     createPortfolio: async (name: string, description?: string, isDefault?: boolean): Promise<any> => {
-      const response = await api.post('/portfolio-management/portfolios', { 
+      const response = await api.post('/api/v1/portfolio-management/portfolios', { 
         name, 
         description, 
         is_default: isDefault 
@@ -412,7 +412,7 @@ export const portfolioAPI = {
       fees?: number;
       notes?: string;
     }): Promise<any> => {
-      const response = await api.post(`/portfolio-management/portfolios/${portfolioId}/positions`, position);
+      const response = await api.post(`/api/v1/portfolio-management/portfolios/${portfolioId}/positions`, position);
       return response.data;
     },
     
@@ -422,7 +422,7 @@ export const portfolioAPI = {
       fees?: number;
       notes?: string;
     }): Promise<any> => {
-      const response = await api.post(`/portfolio-management/portfolios/${portfolioId}/positions/${positionId}/sell`, sale);
+      const response = await api.post(`/api/v1/portfolio-management/portfolios/${portfolioId}/positions/${positionId}/sell`, sale);
       return response.data;
     }
   }
@@ -435,7 +435,7 @@ export const alertsAPI = {
     alert_type?: string;
     is_read?: boolean;
   }): Promise<Alert[]> => {
-    const response = await api.get('/alerts/', { params });
+    const response = await api.get('/api/v1/alerts/', { params });
     return response.data;
   },
   
@@ -445,30 +445,30 @@ export const alertsAPI = {
     message: string;
     etf_isin?: string;
   }): Promise<Alert> => {
-    const response = await api.post('/alerts/', alert);
+    const response = await api.post('/api/v1/alerts/', alert);
     return response.data;
   },
   
   markAsRead: async (alertId: string): Promise<void> => {
-    await api.patch(`/alerts/${alertId}/read`);
+    await api.patch(`/api/v1/alerts/${alertId}/read`);
   },
   
   markAllAsRead: async (): Promise<void> => {
-    await api.patch('/alerts/mark-all-read');
+    await api.patch('/api/v1/alerts/mark-all-read');
   },
   
   deleteAlert: async (alertId: string): Promise<void> => {
-    await api.delete(`/alerts/${alertId}`);
+    await api.delete(`/api/v1/alerts/${alertId}`);
   },
   
   getUnreadCount: async (): Promise<{ unread_count: number }> => {
-    const response = await api.get('/alerts/unread-count');
+    const response = await api.get('/api/v1/alerts/unread-count');
     return response.data;
   },
 
   // Price Alerts API
   getPriceAlerts: async (): Promise<any[]> => {
-    const response = await api.get('/alerts/price-alerts');
+    const response = await api.get('/api/v1/alerts/price-alerts');
     return response.data;
   },
 
@@ -479,7 +479,7 @@ export const alertsAPI = {
     message?: string;
     is_active: boolean;
   }): Promise<any> => {
-    const response = await api.post('/alerts/price-alerts', alert);
+    const response = await api.post('/api/v1/alerts/price-alerts', alert);
     return response.data;
   },
 
@@ -489,16 +489,16 @@ export const alertsAPI = {
     message?: string;
     is_active?: boolean;
   }): Promise<any> => {
-    const response = await api.patch(`/alerts/price-alerts/${alertId}`, update);
+    const response = await api.patch(`/api/v1/alerts/price-alerts/${alertId}`, update);
     return response.data;
   },
 
   deletePriceAlert: async (alertId: string): Promise<void> => {
-    await api.delete(`/alerts/price-alerts/${alertId}`);
+    await api.delete(`/api/v1/alerts/price-alerts/${alertId}`);
   },
 
   getActivePriceAlerts: async (): Promise<any[]> => {
-    const response = await api.get('/alerts/price-alerts/active');
+    const response = await api.get('/api/v1/alerts/price-alerts/active');
     return response.data;
   },
 };
@@ -506,43 +506,43 @@ export const alertsAPI = {
 // Real-time Market Data API
 export const realtimeMarketAPI = {
   getRealtimeQuote: async (symbol: string): Promise<any> => {
-    const response = await api.get(`/realtime-market/realtime/${symbol}`);
+    const response = await api.get(`/api/v1/realtime-market/realtime/${symbol}`);
     return response.data;
   },
 
   getMultipleQuotes: async (symbols: string[]): Promise<any> => {
     const symbolsParam = symbols.join(',');
-    const response = await api.get(`/realtime-market/realtime/multiple?symbols=${symbolsParam}`);
+    const response = await api.get(`/api/v1/realtime-market/realtime/multiple?symbols=${symbolsParam}`);
     return response.data;
   },
 
   getIntradayData: async (symbol: string, hours: number = 24): Promise<any> => {
-    const response = await api.get(`/realtime-market/intraday/${symbol}?hours=${hours}`);
+    const response = await api.get(`/api/v1/realtime-market/intraday/${symbol}?hours=${hours}`);
     return response.data;
   },
 
   getMarketOverview: async (): Promise<any> => {
-    const response = await api.get('/realtime-market/market-overview');
+    const response = await api.get('/api/v1/realtime-market/market-overview');
     return response.data;
   },
 
   getWatchlistData: async (): Promise<any> => {
-    const response = await api.get('/realtime-market/watchlist');
+    const response = await api.get('/api/v1/realtime-market/watchlist');
     return response.data;
   },
 
   getMarketStatus: async (): Promise<any> => {
-    const response = await api.get('/realtime-market/market-status');
+    const response = await api.get('/api/v1/realtime-market/market-status');
     return response.data;
   },
 
   startDataCollection: async (): Promise<any> => {
-    const response = await api.post('/realtime-market/data-collection/start');
+    const response = await api.post('/api/v1/realtime-market/data-collection/start');
     return response.data;
   },
 
   getRealtimeStats: async (): Promise<any> => {
-    const response = await api.get('/realtime-market/stats');
+    const response = await api.get('/api/v1/realtime-market/stats');
     return response.data;
   },
 
@@ -567,7 +567,7 @@ export const advancedBacktestingAPI = {
     end_date?: string;
     param_ranges?: { [key: string]: number[] };
   }): Promise<any> => {
-    const response = await api.post('/advanced-backtesting/walk-forward-analysis', config);
+    const response = await api.post('/api/v1/advanced-backtesting/walk-forward-analysis', config);
     return response.data;
   },
 
@@ -577,7 +577,7 @@ export const advancedBacktestingAPI = {
     simulation_weeks: number;
     use_optimized_params: boolean;
   }): Promise<any> => {
-    const response = await api.post('/advanced-backtesting/future-simulation', config);
+    const response = await api.post('/api/v1/advanced-backtesting/future-simulation', config);
     return response.data;
   }
 };

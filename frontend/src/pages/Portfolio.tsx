@@ -155,7 +155,7 @@ const Portfolio: React.FC = () => {
               total_cost: portfolioData.metrics.total_invested,
               total_gain_loss: portfolioData.metrics.unrealized_pnl,
               total_gain_loss_percent: portfolioData.metrics.unrealized_pnl_percent,
-              cash_balance: 5000, // TODO: Implement cash tracking
+              cash_balance: portfolioData.metrics.cash_balance || 0, // Utiliser les données du portfolio
               day_change: 0, // TODO: Calculate daily change
               day_change_percent: 0,
               positions_count: portfolioData.metrics.positions_count
@@ -238,7 +238,7 @@ const Portfolio: React.FC = () => {
           total_cost: totalCost,
           total_gain_loss: totalValue - totalCost,
           total_gain_loss_percent: totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0,
-          cash_balance: 5000, // Default cash balance
+          cash_balance: 0, // Cash balance sera géré par l'API
           day_change: 0,
           day_change_percent: 0,
           positions_count: positionsData.length

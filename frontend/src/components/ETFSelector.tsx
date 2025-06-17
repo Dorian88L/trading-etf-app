@@ -42,9 +42,8 @@ const ETFSelector: React.FC<ETFSelectorProps> = ({
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
 
-  const sectors = ['Global', 'Europe', 'USA', 'Technology', 'Healthcare', 'Clean Energy', 
-                   'Emerging Markets', 'Bonds', 'Real Estate', 'Small Cap', 'Value Factor', 'Commodities'];
-  const regions = ['World', 'Europe', 'North America', 'Emerging', 'Global'];
+  const [sectors, setSectors] = useState<string[]>([]);
+  const [regions, setRegions] = useState<string[]>([]);
 
   useEffect(() => {
     fetchETFs();
@@ -61,6 +60,13 @@ const ETFSelector: React.FC<ETFSelectorProps> = ({
       if (response.ok) {
         const data = await response.json();
         setEtfs(data);
+        
+        // Extraire les secteurs et régions uniques des données réelles
+        const uniqueSectors = [...new Set(data.map((etf: any) => etf.sector).filter(Boolean))];
+        const uniqueRegions = [...new Set(data.map((etf: any) => etf.region).filter(Boolean))];
+        
+        setSectors(uniqueSectors);
+        setRegions(uniqueRegions);
       }
     } catch (error) {
       console.error('Erreur lors du chargement des ETFs:', error);

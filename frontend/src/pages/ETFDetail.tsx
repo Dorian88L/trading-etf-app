@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { marketAPI } from '../services/api';
+import { marketAPI, signalsAPI } from '../services/api';
 import AdvancedChart from '../components/charts/AdvancedChart';
 import AdvancedIndicators from '../components/charts/AdvancedIndicators';
 import PriceAlertCreator from '../components/alerts/PriceAlertCreator';
@@ -16,11 +16,13 @@ const ETFDetail: React.FC = () => {
   const [indicatorData, setIndicatorData] = useState<any>({});
   const [realTimePrice, setRealTimePrice] = useState<number | null>(null);
   const [refreshCount, setRefreshCount] = useState(0);
+  const [latestSignals, setLatestSignals] = useState<any[]>([]);
 
   useEffect(() => {
     if (symbol) {
       fetchETFData();
       fetchMarketData();
+      fetchSignals();
     }
   }, [symbol]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -45,25 +47,7 @@ const ETFDetail: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Erreur lors du chargement de l\'ETF:', err);
-      
-      // Fallback avec données simulées mais réalistes
-      setEtfData({
-        symbol: symbol,
-        longName: `ETF ${symbol?.toUpperCase()}`,
-        regularMarketPrice: 85.42 + Math.random() * 10,
-        regularMarketChange: (Math.random() - 0.5) * 5,
-        regularMarketChangePercent: (Math.random() - 0.5) * 5,
-        regularMarketVolume: Math.floor(Math.random() * 1000000) + 100000,
-        currency: 'EUR',
-        exchange: 'Euronext',
-        sector: 'Global Equity',
-        marketCap: 50000000000 + Math.random() * 100000000000,
-        fiftyTwoWeekHigh: 95.50,
-        fiftyTwoWeekLow: 75.20,
-        fiftyDayAverage: 82.15,
-        regularMarketOpen: 84.80
-      });
-      setRealTimePrice(85.42 + Math.random() * 10);
+      setError('Impossible de charger les données de l\'ETF. Veuillez réessayer plus tard.');
     }
   };
 
@@ -141,6 +125,17 @@ const ETFDetail: React.FC = () => {
 
   const handleIndicatorChange = (indicators: any) => {
     setIndicatorData(indicators);
+  };
+
+  const fetchSignals = async () => {
+    try {
+      if (symbol) {
+        const data = await signalsAPI.getLatestSignalsForETF(symbol, 10);
+        setLatestSignals(data || []);
+      }
+    } catch (err: any) {
+      console.error('Erreur lors du chargement des signaux:', err);
+    }
   };
 
   if (loading) {
@@ -378,51 +373,52 @@ const ETFDetail: React.FC = () => {
                 <span className="text-xs text-gray-500">Mise à jour: {new Date().toLocaleTimeString('fr-FR')}</span>
               </div>
               
-              {(() => {
-                const signals = ['BUY', 'HOLD', 'SELL', 'WAIT'];
-                const confidence = 60 + Math.random() * 35; // 60-95%
-                const signal = signals[Math.floor(Math.random() * signals.length)];
-                const targetPrice = (realTimePrice || 85) * (0.95 + Math.random() * 0.1);
-                const stopLoss = (realTimePrice || 85) * (0.92 + Math.random() * 0.06);
+              {/* Utiliser les vrais signaux de l'API */}
+              {latestSignals && latestSignals.length > 0 ? (() => {
+                const latestSignal = latestSignals[0];
                 
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="text-center">
                       <div className={`text-2xl font-bold mb-1 ${
-                        signal === 'BUY' ? 'text-green-600' :
-                        signal === 'SELL' ? 'text-red-600' :
-                        signal === 'HOLD' ? 'text-blue-600' :
+                        latestSignal.type === 'BUY' ? 'text-green-600' :
+                        latestSignal.type === 'SELL' ? 'text-red-600' :
+                        latestSignal.type === 'HOLD' ? 'text-blue-600' :
                         'text-gray-600'
                       }`}>
-                        {signal}
+                        {latestSignal.type}
                       </div>
                       <div className="text-sm text-gray-600">Signal</div>
                     </div>
                     <div className="text-center">
                       <div className={`text-2xl font-bold mb-1 ${
-                        confidence >= 80 ? 'text-green-600' :
-                        confidence >= 60 ? 'text-yellow-600' :
+                        latestSignal.confidence >= 80 ? 'text-green-600' :
+                        latestSignal.confidence >= 60 ? 'text-yellow-600' :
                         'text-red-600'
                       }`}>
-                        {confidence.toFixed(1)}%
+                        {latestSignal.confidence.toFixed(1)}%
                       </div>
                       <div className="text-sm text-gray-600">Confiance</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold mb-1 text-gray-900">
-                        {targetPrice.toFixed(2)}€
+                        {latestSignal.target_price ? latestSignal.target_price.toFixed(2) : 'N/A'}€
                       </div>
                       <div className="text-sm text-gray-600">Prix cible</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold mb-1 text-gray-900">
-                        {stopLoss.toFixed(2)}€
+                        {latestSignal.stop_loss ? latestSignal.stop_loss.toFixed(2) : 'N/A'}€
                       </div>
                       <div className="text-sm text-gray-600">Stop-loss</div>
                     </div>
                   </div>
                 );
-              })()}
+              })() : (
+                <div className="text-center py-4 text-gray-500">
+                  Aucun signal disponible pour cet ETF
+                </div>
+              )}
             </div>
             
             {/* Analyse des indicateurs */}
@@ -447,40 +443,34 @@ const ETFDetail: React.FC = () => {
               </div>
             )}
             
-            {/* Historique des signaux récents */}
-            <div className="mt-6">
-              <h5 className="font-medium text-gray-900 mb-3">Historique des signaux (7 derniers jours)</h5>
-              <div className="space-y-2">
-                {Array.from({ length: 5 }, (_, i) => {
-                  const date = new Date();
-                  date.setDate(date.getDate() - i);
-                  const signals = ['BUY', 'HOLD', 'SELL', 'WAIT'];
-                  const signal = signals[Math.floor(Math.random() * signals.length)];
-                  const confidence = 55 + Math.random() * 40;
-                  
-                  return (
+            {/* Historique des signaux réels */}
+            {latestSignals && latestSignals.length > 1 && (
+              <div className="mt-6">
+                <h5 className="font-medium text-gray-900 mb-3">Historique des signaux récents</h5>
+                <div className="space-y-2">
+                  {latestSignals.slice(0, 5).map((signal, i) => (
                     <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                       <div className="flex items-center space-x-3">
                         <span className="text-sm text-gray-600">
-                          {date.toLocaleDateString('fr-FR')}
+                          {new Date(signal.created_at).toLocaleDateString('fr-FR')}
                         </span>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          signal === 'BUY' ? 'bg-green-100 text-green-800' :
-                          signal === 'SELL' ? 'bg-red-100 text-red-800' :
-                          signal === 'HOLD' ? 'bg-blue-100 text-blue-800' :
+                          signal.type === 'BUY' ? 'bg-green-100 text-green-800' :
+                          signal.type === 'SELL' ? 'bg-red-100 text-red-800' :
+                          signal.type === 'HOLD' ? 'bg-blue-100 text-blue-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {signal}
+                          {signal.type}
                         </span>
                       </div>
                       <div className="text-sm text-gray-600">
-                        {confidence.toFixed(1)}% confiance
+                        {signal.confidence.toFixed(1)}% confiance
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

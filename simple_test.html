@@ -1,0 +1,139 @@
+<\!DOCTYPE html>
+<html>
+<head>
+    <title>Test Simple API</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #dfd; }
+        .error { background: #fdd; }
+        button { padding: 10px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        input { padding: 5px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Test Direct API - Trading ETF</h1>
+    
+    <div>
+        <h3>1. Test Health</h3>
+        <button onclick="testHealth()">Test Health Check</button>
+        <div id="health-result" class="test"></div>
+    </div>
+    
+    <div>
+        <h3>2. Test Login</h3>
+        <input type="text" id="email" value="admin@investeclaire.fr" placeholder="Email">
+        <input type="password" id="password" value="Admin123#" placeholder="Password">
+        <button onclick="testGoodLogin()">Test Bon Login</button>
+        <button onclick="testBadLogin()">Test Mauvais Login</button>
+        <div id="login-result" class="test"></div>
+    </div>
+    
+    <div>
+        <h3>3. Test ETFs Public</h3>
+        <button onclick="testETFs()">Test ETFs Preview</button>
+        <div id="etfs-result" class="test"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://api.investeclaire.fr';
+        
+        function showResult(elementId, content, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.className = `test ${isSuccess ? 'success' : 'error'}`;
+            element.innerHTML = `<pre>${JSON.stringify(content, null, 2)}</pre>`;
+        }
+        
+        async function testHealth() {
+            try {
+                console.log('Testing health...');
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                console.log('Health response:', data);
+                showResult('health-result', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: data
+                }, response.ok);
+            } catch (error) {
+                console.error('Health error:', error);
+                showResult('health-result', {
+                    error: error.message,
+                    type: 'Network Error'
+                }, false);
+            }
+        }
+        
+        async function testGoodLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            await testLogin(email, password, 'login-result');
+        }
+        
+        async function testBadLogin() {
+            await testLogin('wrong@email.com', 'wrongpassword', 'login-result');
+        }
+        
+        async function testLogin(email, password, resultId) {
+            try {
+                console.log(`Testing login with ${email}...`);
+                const formData = new URLSearchParams();
+                formData.append('username', email);
+                formData.append('password', password);
+                
+                const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                console.log('Login response:', data);
+                
+                showResult(resultId, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: data,
+                    success: response.ok
+                }, response.ok);
+            } catch (error) {
+                console.error('Login error:', error);
+                showResult(resultId, {
+                    error: error.message,
+                    type: 'Network Error'
+                }, false);
+            }
+        }
+        
+        async function testETFs() {
+            try {
+                console.log('Testing ETFs...');
+                const response = await fetch(`${API_URL}/api/v1/real-market/public/etfs-preview`);
+                const data = await response.json();
+                console.log('ETFs response:', data);
+                
+                showResult('etfs-result', {
+                    status: response.status,
+                    count: data.count || 'N/A',
+                    firstETF: data.data ? data.data[0] : 'No data'
+                }, response.ok);
+            } catch (error) {
+                console.error('ETFs error:', error);
+                showResult('etfs-result', {
+                    error: error.message,
+                    type: 'Network Error'
+                }, false);
+            }
+        }
+        
+        // Test automatique
+        window.onload = function() {
+            console.log('Page loaded, running automatic health test...');
+            testHealth();
+        };
+    </script>
+</body>
+</html>
+EOF < /dev/null
