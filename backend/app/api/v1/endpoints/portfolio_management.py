@@ -11,7 +11,7 @@ from decimal import Decimal
 from app.core.database import get_db
 from app.api.deps import get_current_active_user
 from app.models.user import User
-from app.models.user_preferences import Portfolio, PortfolioPosition, PortfolioTransaction
+from app.models.portfolio import Portfolio, Position, Transaction
 from app.services.etf_catalog import get_etf_catalog_service
 from app.services.portfolio_service import get_portfolio_calculation_service
 
@@ -267,9 +267,9 @@ async def add_position_to_portfolio(
         total_amount = quantity * price
         
         # Vérifier si une position existe déjà pour cet ETF
-        existing_position = db.query(PortfolioPosition).filter(
-            PortfolioPosition.portfolio_id == portfolio_id,
-            PortfolioPosition.etf_isin == etf_isin
+        existing_position = db.query(Position).filter(
+            Position.portfolio_id == portfolio_id,
+            Position.etf_isin == etf_isin
         ).first()
         
         if existing_position:
@@ -287,7 +287,7 @@ async def add_position_to_portfolio(
             position = existing_position
         else:
             # Créer nouvelle position
-            position = PortfolioPosition(
+            position = Position(
                 portfolio_id=portfolio_id,
                 etf_isin=etf_isin,
                 etf_symbol=etf_symbol,
@@ -300,7 +300,7 @@ async def add_position_to_portfolio(
             db.add(position)
         
         # Créer la transaction
-        transaction = PortfolioTransaction(
+        transaction = Transaction(
             portfolio_id=portfolio_id,
             position_id=position.id if existing_position else None,
             etf_isin=etf_isin,
@@ -358,8 +358,8 @@ async def sell_position(
     """Vend une partie ou la totalité d'une position"""
     try:
         # Vérifier la position
-        position = db.query(PortfolioPosition).join(Portfolio).filter(
-            PortfolioPosition.id == position_id,
+        position = db.query(Position).join(Portfolio).filter(
+            Position.id == position_id,
             Portfolio.id == portfolio_id,
             Portfolio.user_id == current_user.id
         ).first()
@@ -373,7 +373,7 @@ async def sell_position(
         total_amount = quantity * price
         
         # Créer la transaction de vente
-        transaction = PortfolioTransaction(
+        transaction = Transaction(
             portfolio_id=portfolio_id,
             position_id=position_id,
             etf_isin=position.etf_isin,
@@ -460,10 +460,10 @@ async def get_portfolio_performance(
         start_date = datetime.now() - timedelta(days=days_back)
         
         # Récupérer les transactions de la période
-        transactions = db.query(PortfolioTransaction).filter(
-            PortfolioTransaction.portfolio_id == portfolio_id,
-            PortfolioTransaction.executed_at >= start_date
-        ).order_by(PortfolioTransaction.executed_at).all()
+        transactions = db.query(Transaction).filter(
+            Transaction.portfolio_id == portfolio_id,
+            Transaction.executed_at >= start_date
+        ).order_by(Transaction.executed_at).all()
         
         # Calculer les métriques de performance
         total_invested = 0
@@ -545,12 +545,12 @@ async def get_portfolio_transactions(
             raise HTTPException(status_code=404, detail="Portfolio non trouvé")
         
         # Récupérer les transactions
-        transactions = db.query(PortfolioTransaction).filter(
-            PortfolioTransaction.portfolio_id == portfolio_id
-        ).order_by(PortfolioTransaction.executed_at.desc()).offset(offset).limit(limit).all()
+        transactions = db.query(Transaction).filter(
+            Transaction.portfolio_id == portfolio_id
+        ).order_by(Transaction.executed_at.desc()).offset(offset).limit(limit).all()
         
-        total_count = db.query(PortfolioTransaction).filter(
-            PortfolioTransaction.portfolio_id == portfolio_id
+        total_count = db.query(Transaction).filter(
+            Transaction.portfolio_id == portfolio_id
         ).count()
         
         transaction_data = []
