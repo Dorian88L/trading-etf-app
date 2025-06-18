@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, DECIMAL, BigInteger, ForeignKey, PrimaryKeyConstraint
+from sqlalchemy import Column, String, DateTime, DECIMAL, BigInteger, ForeignKey, PrimaryKeyConstraint, Boolean, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -25,6 +25,8 @@ class ETF(Base):
     positions = relationship("Position", back_populates="etf")
     transactions = relationship("Transaction", back_populates="etf")
     watchlists = relationship("Watchlist", back_populates="etf")
+    symbol_mappings = relationship("ETFSymbolMapping", back_populates="etf")
+    display_config = relationship("ETFDisplayConfig", back_populates="etf", uselist=False)
 
 
 class MarketData(Base):
@@ -80,3 +82,35 @@ class TechnicalIndicators(Base):
     
     # Relationships
     etf = relationship("ETF", back_populates="technical_indicators")
+
+
+class ETFSymbolMapping(Base):
+    __tablename__ = "etf_symbol_mappings"
+    
+    id = Column(String, primary_key=True)  # Composite: isin_exchange
+    etf_isin = Column(String(12), ForeignKey("etfs.isin"), nullable=False)
+    exchange_code = Column(String(10), nullable=False)  # AS, DE, L, PA
+    trading_symbol = Column(String(20), nullable=False)  # CSPX.AS, IWDA.L
+    currency = Column(String(3), nullable=False)  # EUR, USD, GBP
+    is_primary = Column(Boolean, default=False)  # Symbole principal pour les données temps réel
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    etf = relationship("ETF", back_populates="symbol_mappings")
+
+
+class ETFDisplayConfig(Base):
+    __tablename__ = "etf_display_config"
+    
+    etf_isin = Column(String(12), ForeignKey("etfs.isin"), primary_key=True)
+    is_visible_on_dashboard = Column(Boolean, default=True)
+    is_visible_on_etf_list = Column(Boolean, default=True)
+    display_order = Column(DECIMAL(3, 1), default=0)  # Pour l'ordre d'affichage
+    notes = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    etf = relationship("ETF", back_populates="display_config")

@@ -4,7 +4,7 @@ from app.api.v1.endpoints import (
     advanced_signals, monitoring, etf_selection, notifications, 
     etf_scoring, trading_algorithms, realtime_market, backtesting, 
     websocket, advanced_backtesting, historical_data, optimized_etf_data,
-    portfolio_management
+    portfolio_management, user_etf_preferences
 )
 
 api_router = APIRouter()
@@ -29,3 +29,4 @@ api_router.include_router(monitoring.router, prefix="/monitoring", tags=["monito
 api_router.include_router(backtesting.router, prefix="/backtesting", tags=["backtesting"])
 api_router.include_router(advanced_backtesting.router, prefix="/advanced-backtesting", tags=["advanced-backtesting"])
 api_router.include_router(websocket.router, prefix="/websocket", tags=["websocket"])
+api_router.include_router(user_etf_preferences.router, prefix="/user-etf-preferences", tags=["user-etf-preferences"])

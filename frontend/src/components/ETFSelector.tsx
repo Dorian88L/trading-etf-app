@@ -62,8 +62,8 @@ const ETFSelector: React.FC<ETFSelectorProps> = ({
         setEtfs(data);
         
         // Extraire les secteurs et régions uniques des données réelles
-        const uniqueSectors = [...new Set(data.map((etf: any) => etf.sector).filter(Boolean))];
-        const uniqueRegions = [...new Set(data.map((etf: any) => etf.region).filter(Boolean))];
+        const uniqueSectors = Array.from(new Set(data.map((etf: any) => etf.sector).filter(Boolean)));
+        const uniqueRegions = Array.from(new Set(data.map((etf: any) => etf.region).filter(Boolean)));
         
         setSectors(uniqueSectors);
         setRegions(uniqueRegions);

@@ -128,46 +128,40 @@ async def get_real_etf_data(
                 }
                 etf_data.append(etf_item)
         else:
-            # Utiliser le service hybride pour des vraies données corrélées
-            logger.info(f"Récupération hybride temps réel pour {len(etfs_from_db)} ETFs")
+            # Utiliser le nouveau service dynamique avec scraping
+            logger.info(f"Récupération dynamique temps réel pour {len(etfs_from_db)} ETFs")
             
-            from app.services.hybrid_market_data import hybrid_market_service
+            from app.services.dynamic_etf_service import get_dynamic_etf_service
             
-            for etf in etfs_from_db:
+            dynamic_service = get_dynamic_etf_service()
+            
+            # Récupérer toutes les données temps réel
+            real_etf_data = await dynamic_service.get_all_realtime_data_for_etf_list()
+            
+            for etf_data_point in real_etf_data:
                 try:
-                    # Préparer les données ETF pour le service hybride
-                    etf_metadata = {
-                        'name': etf.name,
-                        'sector': etf.sector,
-                        'currency': etf.currency,
-                        'exchange': etf.exchange,
-                        'aum': etf.aum
-                    }
-                    
-                    # Récupérer les données hybrides (vraies si disponibles, corrélées sinon)
-                    hybrid_data = hybrid_market_service.get_etf_data(etf.isin, etf_metadata)
-                    
-                    # Utiliser les données hybrides
                     etf_item = {
-                        'symbol': hybrid_data.symbol,
-                        'isin': hybrid_data.isin,
-                        'name': hybrid_data.name,
-                        'current_price': hybrid_data.current_price,
-                        'change': hybrid_data.change,
-                        'change_percent': hybrid_data.change_percent,
-                        'volume': hybrid_data.volume,
-                        'market_cap': hybrid_data.market_cap,
-                        'currency': hybrid_data.currency,
-                        'exchange': hybrid_data.exchange,
-                        'sector': hybrid_data.sector,
-                        'last_update': hybrid_data.last_update.isoformat(),
-                        'source': hybrid_data.source  # Indique la source des données
+                        'symbol': etf_data_point.symbol,
+                        'isin': etf_data_point.isin,
+                        'name': etf_data_point.name,
+                        'current_price': etf_data_point.current_price,
+                        'change': etf_data_point.change,
+                        'change_percent': etf_data_point.change_percent,
+                        'volume': etf_data_point.volume,
+                        'market_cap': etf_data_point.market_cap,
+                        'currency': etf_data_point.currency,
+                        'exchange': etf_data_point.exchange,
+                        'sector': etf_data_point.sector,
+                        'last_update': etf_data_point.last_update.isoformat(),
+                        'source': etf_data_point.source.value,  # Indique la source des données
+                        'confidence_score': etf_data_point.confidence_score,
+                        'is_real_data': etf_data_point.source.value in ['yahoo_scraping', 'boursorama_scraping', 'yahoo_finance', 'alpha_vantage']
                     }
                     
                     etf_data.append(etf_item)
                     
                 except Exception as etf_error:
-                    logger.error(f"Erreur pour ETF {etf.isin}: {etf_error}")
+                    logger.error(f"Erreur pour ETF {etf_data_point.isin if hasattr(etf_data_point, 'isin') else 'unknown'}: {etf_error}")
                     continue
         
         logger.info(f"Données temps réel préparées pour {len(etf_data)} ETFs")
@@ -187,25 +181,55 @@ async def get_real_etf_data(
 
 @router.get("/dashboard-stats")
 async def get_dashboard_statistics():
-    """Récupère les statistiques simplifiées pour le dashboard"""
+    """Récupère les statistiques simplifiées pour le dashboard basées sur les vraies données"""
     try:
-        import random
+        from app.services.dynamic_etf_service import get_dynamic_etf_service
+        
+        dynamic_service = get_dynamic_etf_service()
+        
+        # Récupérer les vraies données ETF
+        etf_data = await dynamic_service.get_all_realtime_data_for_dashboard()
+        
+        if not etf_data:
+            # Si pas de données, retourner des valeurs par défaut
+            return {
+                'status': 'success',
+                'data': {
+                    'market_overview': {
+                        'total_etfs': 0,
+                        'avg_change_percent': 0.0,
+                        'positive_etfs': 0,
+                        'negative_etfs': 0
+                    },
+                    'alerts_count': 0,
+                    'last_update': datetime.now().isoformat()
+                }
+            }
+        
+        # Calculer les vraies statistiques
+        total_etfs = len(etf_data)
+        positive_etfs = sum(1 for etf in etf_data if etf.change_percent > 0)
+        negative_etfs = sum(1 for etf in etf_data if etf.change_percent < 0)
+        avg_change_percent = sum(etf.change_percent for etf in etf_data) / total_etfs if total_etfs > 0 else 0.0
         
         return {
             'status': 'success',
             'data': {
                 'market_overview': {
-                    'total_etfs': 48,
-                    'avg_change_percent': round(random.uniform(-1, 1), 2),
-                    'positive_etfs': random.randint(20, 30),
-                    'negative_etfs': random.randint(15, 25)
+                    'total_etfs': total_etfs,
+                    'avg_change_percent': round(avg_change_percent, 2),
+                    'positive_etfs': positive_etfs,
+                    'negative_etfs': negative_etfs
                 },
-                'alerts_count': random.randint(0, 5),
-                'last_update': datetime.now().isoformat()
+                'alerts_count': 0,  # À implémenter avec les vraies alertes
+                'last_update': datetime.now().isoformat(),
+                'data_source': 'real_time_scraping'
             }
         }
         
     except Exception as e:
+        import traceback
+        logger.error(f"Erreur dashboard stats: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des statistiques: {str(e)}")
 
 @router.get("/real-indices")
@@ -433,36 +457,68 @@ async def get_available_etfs(
     }
 
 @router.get("/sectors")
-async def get_market_sectors(
-    db = Depends(get_db)
-):
-    """Récupère les performances par secteur"""
+async def get_market_sectors():
+    """Récupère les performances par secteur basées sur les vraies données"""
     try:
-        from app.models.etf import ETF
-        import random
+        from app.services.dynamic_etf_service import get_dynamic_etf_service
         
-        # Récupérer tous les secteurs uniques
-        sectors = db.query(ETF.sector).distinct().filter(ETF.sector.isnot(None)).all()
+        dynamic_service = get_dynamic_etf_service()
         
-        sectors_data = []
-        for sector_tuple in sectors:
-            sector = sector_tuple[0]
-            if sector:
-                sectors_data.append({
+        # Récupérer les vraies données ETF
+        etf_data = await dynamic_service.get_all_realtime_data_for_dashboard()
+        
+        if not etf_data:
+            return {
+                'status': 'success',
+                'count': 0,
+                'data': [],
+                'timestamp': datetime.now().isoformat()
+            }
+        
+        # Grouper par secteur et calculer les performances
+        sectors_dict = {}
+        for etf in etf_data:
+            sector = etf.sector
+            if sector not in sectors_dict:
+                sectors_dict[sector] = {
                     'name': sector,
-                    'change': round(random.uniform(-3, 3), 1),
-                    'volume': random.randint(1000000, 50000000),
-                    'marketCap': random.randint(10000000000, 500000000000)
-                })
+                    'etfs': [],
+                    'total_volume': 0,
+                    'total_market_cap': 0
+                }
+            
+            sectors_dict[sector]['etfs'].append(etf)
+            sectors_dict[sector]['total_volume'] += etf.volume if etf.volume else 0
+            sectors_dict[sector]['total_market_cap'] += etf.market_cap if etf.market_cap else 0
+        
+        # Calculer les moyennes par secteur
+        sectors_data = []
+        for sector, data in sectors_dict.items():
+            etfs = data['etfs']
+            avg_change = sum(etf.change_percent for etf in etfs) / len(etfs) if etfs else 0.0
+            
+            sectors_data.append({
+                'name': sector,
+                'change': round(avg_change, 1),
+                'volume': data['total_volume'],
+                'marketCap': data['total_market_cap'],
+                'etf_count': len(etfs)
+            })
+        
+        # Trier par performance
+        sectors_data.sort(key=lambda x: x['change'], reverse=True)
         
         return {
             'status': 'success',
             'count': len(sectors_data),
             'data': sectors_data,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'data_source': 'real_time_scraping'
         }
         
     except Exception as e:
+        import traceback
+        logger.error(f"Erreur sectors: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des secteurs: {str(e)}")
 
 @router.get("/market-status")

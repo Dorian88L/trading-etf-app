@@ -74,6 +74,7 @@ class MultiSourceETFDataService:
             "IWDA.L": {"isin": "IE00B4L5Y983", "name": "iShares Core MSCI World UCITS ETF USD (Acc)", "sector": "Global Equity", "exchange": "LSE"},
             "VWRL.L": {"isin": "IE00B3RBWM25", "name": "Vanguard FTSE All-World UCITS ETF", "sector": "Global Equity", "exchange": "LSE"},
             "CSPX.L": {"isin": "IE00B5BMR087", "name": "iShares Core S&P 500 UCITS ETF USD (Acc)", "sector": "US Equity", "exchange": "LSE"},
+            "CSPX.AS": {"isin": "IE00B5BMR087", "name": "iShares Core S&P 500 UCITS ETF", "sector": "US Large Cap", "exchange": "Euronext Amsterdam"},
             "VUSA.L": {"isin": "IE00B3XXRP09", "name": "Vanguard S&P 500 UCITS ETF", "sector": "US Equity", "exchange": "LSE"},
             "IEMA.L": {"isin": "IE00B4L5YC18", "name": "iShares Core MSCI Emerging Markets IMI UCITS ETF", "sector": "Emerging Markets", "exchange": "LSE"},
             "IEUR.L": {"isin": "IE00B1YZSC51", "name": "iShares Core MSCI Europe UCITS ETF EUR (Acc)", "sector": "Europe Equity", "exchange": "LSE"},
@@ -94,6 +95,17 @@ class MultiSourceETFDataService:
             "IWDA.AS": {"isin": "IE00B4L5Y983", "name": "iShares Core MSCI World UCITS ETF", "sector": "Global Equity", "exchange": "AMS"},
             "VWRL.AS": {"isin": "IE00B3RBWM25", "name": "Vanguard FTSE All-World UCITS ETF", "sector": "Global Equity", "exchange": "AMS"},
         }
+        
+        # Mapping inverse : ISIN vers meilleur symbole pour les données temps réel
+        self.isin_to_best_symbol = {}
+        for symbol, info in self.european_etfs.items():
+            isin = info['isin']
+            if isin not in self.isin_to_best_symbol:
+                self.isin_to_best_symbol[isin] = symbol
+            else:
+                # Préférer les symboles avec EUR pour les prix européens
+                if '.AS' in symbol or '.DE' in symbol or '.PA' in symbol:
+                    self.isin_to_best_symbol[isin] = symbol
         
         # Configuration des API keys
         self.api_keys = {
@@ -568,13 +580,30 @@ class MultiSourceETFDataService:
         logger.warning(f"Aucune source disponible pour {symbol}, génération de données hybrides")
         return self._generate_hybrid_data(symbol)
 
+    async def get_etf_data_by_isin(self, isin: str) -> Optional[ETFDataPoint]:
+        """
+        Récupère les données d'un ETF par son ISIN en utilisant le meilleur symbole disponible
+        """
+        best_symbol = self.isin_to_best_symbol.get(isin)
+        if not best_symbol:
+            logger.warning(f"Aucun symbole trouvé pour l'ISIN {isin}")
+            return None
+        
+        logger.info(f"Récupération des données pour ISIN {isin} via symbole {best_symbol}")
+        return await self.get_etf_data(best_symbol)
+
     async def get_all_etf_data(self) -> List[ETFDataPoint]:
         """
-        Récupère toutes les données ETF disponibles
+        Récupère toutes les données ETF disponibles en utilisant les meilleurs symboles par ISIN
         """
         tasks = []
-        for symbol in self.european_etfs.keys():
-            tasks.append(self.get_etf_data(symbol))
+        processed_isins = set()
+        
+        # Pour chaque ISIN, utiliser le meilleur symbole
+        for isin, best_symbol in self.isin_to_best_symbol.items():
+            if isin not in processed_isins:
+                tasks.append(self.get_etf_data(best_symbol))
+                processed_isins.add(isin)
         
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
@@ -585,7 +614,7 @@ class MultiSourceETFDataService:
             elif isinstance(result, Exception):
                 logger.error(f"Erreur lors de la récupération: {result}")
         
-        logger.info(f"Récupération terminée: {len(valid_results)} ETFs sur {len(self.european_etfs)}")
+        logger.info(f"Récupération terminée: {len(valid_results)} ETFs uniques sur {len(self.isin_to_best_symbol)} ISINs")
         return valid_results
 
     async def close(self):

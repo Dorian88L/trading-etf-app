@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.api.deps import get_current_active_user
 from app.models.user import User
 from app.services.multi_source_etf_data import get_multi_source_etf_service, MultiSourceETFDataService, ETFDataPoint, DataSource
+from app.services.dynamic_etf_service import get_dynamic_etf_service, DynamicETFService
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ except:
 async def get_optimized_etf_data(
     use_cache: bool = True,
     min_confidence: float = 0.0,
-    etf_service: MultiSourceETFDataService = Depends(get_multi_source_etf_service)
+    dynamic_service: DynamicETFService = Depends(get_dynamic_etf_service)
 ):
     """
     Récupère les données ETF optimisées avec sources multiples
@@ -90,9 +91,9 @@ async def get_optimized_etf_data(
             except Exception as e:
                 logger.warning(f"Erreur cache Redis: {e}")
         
-        # Récupérer les données depuis les sources
-        logger.info("Récupération des données ETF depuis sources multiples...")
-        etf_data_list = await etf_service.get_all_etf_data()
+        # Récupérer les données depuis les sources dynamiques
+        logger.info("Récupération des données ETF depuis configuration dynamique...")
+        etf_data_list = await dynamic_service.get_all_realtime_data_for_etf_list()
         
         # Filtrer selon le score de confiance
         filtered_etfs = [

@@ -22,6 +22,7 @@ import WatchlistManager from './WatchlistManager';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'ETFs', href: '/etfs', icon: ChartBarIcon },
+  { name: 'Mes ETFs', href: '/etf-selection', icon: EyeIcon },
   { name: 'Scoring', href: '/scoring', icon: ArrowTrendingUpIcon },
   { name: 'Signals', href: '/signals', icon: ArrowTrendingUpIcon },
   { name: 'Portfolio', href: '/portfolio', icon: CurrencyDollarIcon },

@@ -28,5 +28,6 @@ class User(Base):
     signal_subscriptions = relationship("UserSignalSubscription", back_populates="user")
     push_subscriptions = relationship("PushSubscription", back_populates="user")
     notification_preferences = relationship("UserNotificationPreferences", back_populates="user", uselist=False)
+    etf_preferences = relationship("UserETFPreferences", back_populates="user")
 
 
