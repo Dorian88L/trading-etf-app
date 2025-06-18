@@ -51,6 +51,7 @@ async def get_user_portfolios(
                 'unrealized_pnl': round(unrealized_pnl, 2),
                 'unrealized_pnl_percent': round(unrealized_pnl_percent, 2),
                 'positions_count': len(portfolio.positions),
+                'cash_balance': round(portfolio.cash_balance, 2) if hasattr(portfolio, 'cash_balance') and portfolio.cash_balance else 0.0,
                 'created_at': portfolio.created_at.isoformat(),
                 'updated_at': portfolio.updated_at.isoformat()
             })
@@ -210,6 +211,7 @@ async def get_portfolio_details(
                     'unrealized_pnl': round(portfolio_pnl, 2),
                     'unrealized_pnl_percent': round(portfolio_pnl_percent, 2),
                     'positions_count': len(positions_data),
+                    'cash_balance': round(portfolio.cash_balance, 2) if hasattr(portfolio, 'cash_balance') and portfolio.cash_balance else 0.0,
                     'best_performer': max(positions_data, key=lambda x: x['unrealized_pnl_percent']) if positions_data else None,
                     'worst_performer': min(positions_data, key=lambda x: x['unrealized_pnl_percent']) if positions_data else None
                 },

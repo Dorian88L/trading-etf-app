@@ -389,11 +389,11 @@ const Portfolio: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">💼 Mon Portfolio</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">💼 Mon Portfolio</h1>
           <p className="text-gray-600 mt-2">
             Gérez et suivez vos investissements en temps réel
           </p>
@@ -428,7 +428,7 @@ const Portfolio: React.FC = () => {
       </div>
 
       {/* Portfolio Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between">
             <div>

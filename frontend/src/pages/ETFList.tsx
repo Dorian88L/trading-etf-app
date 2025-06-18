@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { marketAPI } from '../services/api';
 import PriceAlertCreator from '../components/alerts/PriceAlertCreator';
 import LoadingState from '../components/LoadingState';
+import DataQualityIndicator from '../components/DataQualityIndicator';
+import DataSourcesStatus from '../components/DataSourcesStatus';
 import { useApiCall } from '../hooks/useApiCall';
 
 interface RealETFData {
@@ -18,6 +20,11 @@ interface RealETFData {
   exchange: string;
   sector: string;
   last_update: string;
+  source?: string;
+  confidence_score?: number;
+  is_real_data?: boolean;
+  data_quality?: string;
+  reliability_icon?: string;
 }
 
 const ETFList: React.FC = () => {
@@ -61,6 +68,9 @@ const ETFList: React.FC = () => {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [currencyFilter, setCurrencyFilter] = useState('');
   const [exchangeFilter, setExchangeFilter] = useState('');
+  const [showDataSourcesStatus, setShowDataSourcesStatus] = useState(false);
+  const [minConfidence, setMinConfidence] = useState(0.0);
+  const [showOnlyRealData, setShowOnlyRealData] = useState(false);
 
   useEffect(() => {
     fetchETFs();
@@ -77,7 +87,10 @@ const ETFList: React.FC = () => {
       const matchesSector = !sectorFilter || etf.sector === sectorFilter;
       const matchesCurrency = !currencyFilter || etf.currency === currencyFilter;
       const matchesExchange = !exchangeFilter || etf.exchange === exchangeFilter;
-      return matchesSearch && matchesSector && matchesCurrency && matchesExchange;
+      const matchesConfidence = (etf.confidence_score || 1.0) >= minConfidence;
+      const matchesRealData = !showOnlyRealData || (etf.is_real_data !== false);
+      
+      return matchesSearch && matchesSector && matchesCurrency && matchesExchange && matchesConfidence && matchesRealData;
     }).sort((a: RealETFData, b: RealETFData) => {
       let aValue, bValue;
       
@@ -180,16 +193,16 @@ const ETFList: React.FC = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-3xl font-bold text-gray-900">📈 ETFs Européens</h1>
-          <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-3 sm:space-y-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">📈 ETFs Européens</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
             {/* Vue Mode Toggle */}
-            <div className="flex rounded-lg border border-gray-300 bg-white">
+            <div className="flex rounded-lg border border-gray-300 bg-white w-full sm:w-auto">
               <button
                 onClick={() => setViewMode('table')}
-                className={`px-3 py-2 text-sm font-medium rounded-l-lg ${
+                className={`flex-1 sm:flex-none px-3 py-2 text-sm font-medium rounded-l-lg ${
                   viewMode === 'table'
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-500 hover:text-gray-700'
@@ -199,7 +212,7 @@ const ETFList: React.FC = () => {
               </button>
               <button
                 onClick={() => setViewMode('cards')}
-                className={`px-3 py-2 text-sm font-medium rounded-r-lg ${
+                className={`flex-1 sm:flex-none px-3 py-2 text-sm font-medium rounded-r-lg ${
                   viewMode === 'cards'
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-500 hover:text-gray-700'
@@ -208,6 +221,12 @@ const ETFList: React.FC = () => {
                 🎴 Cartes
               </button>
             </div>
+            <button
+              onClick={() => setShowDataSourcesStatus(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+            >
+              📊 Sources
+            </button>
             <button
               onClick={fetchETFs}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
@@ -237,7 +256,7 @@ const ETFList: React.FC = () => {
             </div>
             
             {/* Filtres */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:w-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 lg:w-auto">
               <select
                 value={sectorFilter}
                 onChange={(e) => setSectorFilter(e.target.value)}
@@ -289,6 +308,28 @@ const ETFList: React.FC = () => {
                 <option value="volume-desc">📊 Volume ↑</option>
                 <option value="volume-asc">📊 Volume ↓</option>
               </select>
+              
+              <select
+                value={minConfidence.toString()}
+                onChange={(e) => setMinConfidence(parseFloat(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+              >
+                <option value="0.0">🎯 Toute qualité</option>
+                <option value="0.7">🎯 Bonne qualité (70%+)</option>
+                <option value="0.8">🎯 Très bonne (80%+)</option>
+                <option value="0.9">🎯 Excellente (90%+)</option>
+              </select>
+              
+              <button
+                onClick={() => setShowOnlyRealData(!showOnlyRealData)}
+                className={`px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
+                  showOnlyRealData
+                    ? 'bg-green-600 text-white border-green-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {showOnlyRealData ? '🟢 Données réelles' : '⚪ Toutes données'}
+              </button>
             </div>
           </div>
           
@@ -302,6 +343,8 @@ const ETFList: React.FC = () => {
                 setExchangeFilter('');
                 setSortBy('name');
                 setSortOrder('asc');
+                setMinConfidence(0.0);
+                setShowOnlyRealData(false);
               }}
               className="px-3 py-1 text-xs bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200"
             >
@@ -376,6 +419,9 @@ const ETFList: React.FC = () => {
                     Secteur
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Qualité
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -428,6 +474,16 @@ const ETFList: React.FC = () => {
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
                         {etf.sector}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <DataQualityIndicator
+                        source={etf.source || 'unknown'}
+                        confidenceScore={etf.confidence_score || 1.0}
+                        isRealData={etf.is_real_data !== false}
+                        dataQuality={etf.data_quality || 'unknown'}
+                        reliabilityIcon={etf.reliability_icon || '⚪'}
+                        showDetails={false}
+                      />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex items-center space-x-2">
@@ -517,6 +573,17 @@ const ETFList: React.FC = () => {
                     <span className="text-gray-600">Bourse:</span>
                     <span className="font-medium">{etf.exchange}</span>
                   </div>
+                  <div className="flex justify-between text-sm items-center">
+                    <span className="text-gray-600">Qualité:</span>
+                    <DataQualityIndicator
+                      source={etf.source || 'unknown'}
+                      confidenceScore={etf.confidence_score || 1.0}
+                      isRealData={etf.is_real_data !== false}
+                      dataQuality={etf.data_quality || 'unknown'}
+                      reliabilityIcon={etf.reliability_icon || '⚪'}
+                      showDetails={false}
+                    />
+                  </div>
                 </div>
 
                 {/* Actions */}
@@ -546,7 +613,7 @@ const ETFList: React.FC = () => {
       </LoadingState>
 
       {/* Statistiques en bas */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-white p-4 rounded-lg shadow-sm border text-center">
           <div className="text-2xl font-bold text-blue-600">{filteredETFs.length}</div>
           <div className="text-sm text-gray-600">ETFs trouvés</div>
@@ -567,11 +634,29 @@ const ETFList: React.FC = () => {
           <div className="text-2xl font-bold text-yellow-600">{favorites.length}</div>
           <div className="text-sm text-gray-600">Favoris</div>
         </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border text-center">
+          <div className="text-2xl font-bold text-blue-600">
+            {Math.round(filteredETFs.reduce((sum, etf) => sum + (etf.confidence_score || 1.0), 0) / (filteredETFs.length || 1) * 100)}%
+          </div>
+          <div className="text-sm text-gray-600">Qualité moy.</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-sm border text-center">
+          <div className="text-2xl font-bold text-purple-600">
+            {filteredETFs.filter(etf => etf.is_real_data !== false).length}
+          </div>
+          <div className="text-sm text-gray-600">Données réelles</div>
+        </div>
       </div>
 
       <div className="mt-6 text-xs text-gray-500 text-center">
         <p>Dernière mise à jour: {etfs && etfs.length > 0 ? new Date(etfs[0].last_update).toLocaleString('fr-FR') : 'N/A'}</p>
-        <p>Données fournies par Yahoo Finance</p>
+        <p>Données multi-sources: Yahoo Finance, Alpha Vantage, FMP, EODHD</p>
+        <button
+          onClick={() => setShowDataSourcesStatus(true)}
+          className="text-blue-600 hover:text-blue-800 underline"
+        >
+          Voir le statut des sources
+        </button>
       </div>
 
       {/* Modal d'alerte de prix */}
@@ -590,6 +675,12 @@ const ETFList: React.FC = () => {
           currentPrice={selectedETF.current_price}
         />
       )}
+
+      {/* Modal du statut des sources */}
+      <DataSourcesStatus
+        isOpen={showDataSourcesStatus}
+        onClose={() => setShowDataSourcesStatus(false)}
+      />
 
     </div>
   );

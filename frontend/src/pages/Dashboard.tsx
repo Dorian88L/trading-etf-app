@@ -168,13 +168,13 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header amélioré */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-              <SparklesIcon className="h-8 w-8 text-blue-600 mr-3" />
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center">
+              <SparklesIcon className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 mr-2 sm:mr-3" />
               Trading ETF Dashboard
             </h1>
             <p className="text-gray-600 mt-1">
@@ -183,7 +183,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
           <div className="flex items-center space-x-1">
             <div className={`w-3 h-3 rounded-full ${realTimeData ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
             <span className="text-sm text-gray-600">

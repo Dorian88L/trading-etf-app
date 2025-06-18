@@ -128,68 +128,41 @@ async def get_real_etf_data(
                 }
                 etf_data.append(etf_item)
         else:
-            # Combiner données DB + données temps réel
-            logger.info(f"Récupération temps réel pour {len(etfs_from_db)} ETFs")
+            # Utiliser le service hybride pour des vraies données corrélées
+            logger.info(f"Récupération hybride temps réel pour {len(etfs_from_db)} ETFs")
             
-            # Mapping ISIN vers symbole Yahoo Finance (à améliorer)
-            isin_to_symbol = {
-                'IE00B4L5Y983': 'IWDA.AS',
-                'IE00BK5BQT80': 'VWCE.DE', 
-                'IE00B5BMR087': 'CSPX.L',
-                'IE00B3XXRP09': 'VUSA.AS',
-                'LU0274208692': 'XMWO.DE',
-                'FR0010315770': 'CW8.PA',
-                'DE0005933931': 'EXS1.DE',
-                'IE00BKM4GZ66': 'EIMI.DE'
-            }
+            from app.services.hybrid_market_data import hybrid_market_service
             
             for etf in etfs_from_db:
                 try:
-                    # Essayer de récupérer les données temps réel
-                    symbol = isin_to_symbol.get(etf.isin)
-                    real_data = None
+                    # Préparer les données ETF pour le service hybride
+                    etf_metadata = {
+                        'name': etf.name,
+                        'sector': etf.sector,
+                        'currency': etf.currency,
+                        'exchange': etf.exchange,
+                        'aum': etf.aum
+                    }
                     
-                    if symbol:
-                        real_data = market_service.get_real_etf_data(symbol)
+                    # Récupérer les données hybrides (vraies si disponibles, corrélées sinon)
+                    hybrid_data = hybrid_market_service.get_etf_data(etf.isin, etf_metadata)
                     
-                    if real_data:
-                        # Utiliser les données temps réel
-                        etf_item = {
-                            'symbol': symbol,
-                            'isin': etf.isin,
-                            'name': etf.name,
-                            'current_price': round(real_data.current_price, 2),
-                            'change': round(real_data.change, 2),
-                            'change_percent': round(real_data.change_percent, 2),
-                            'volume': real_data.volume,
-                            'market_cap': real_data.market_cap or int(etf.aum) if etf.aum else None,
-                            'currency': etf.currency or real_data.currency,
-                            'exchange': etf.exchange or real_data.exchange,
-                            'sector': etf.sector or real_data.sector,
-                            'last_update': real_data.last_update.isoformat()
-                        }
-                    else:
-                        # Fallback vers données de base avec prix simulé réaliste
-                        import random
-                        base_price = 100.0  # Prix de base réaliste
-                        current_price = base_price * random.uniform(0.8, 1.2)
-                        change = random.uniform(-2, 2)
-                        change_percent = (change / (current_price - change)) * 100
-                        
-                        etf_item = {
-                            'symbol': f"{etf.isin[:4]}.XX",
-                            'isin': etf.isin,
-                            'name': etf.name,
-                            'current_price': round(current_price, 2),
-                            'change': round(change, 2),
-                            'change_percent': round(change_percent, 2),
-                            'volume': random.randint(100000, 1000000),
-                            'market_cap': int(etf.aum) if etf.aum else None,
-                            'currency': etf.currency or 'EUR',
-                            'exchange': etf.exchange or 'Unknown',
-                            'sector': etf.sector or 'Other',
-                            'last_update': datetime.now().isoformat()
-                        }
+                    # Utiliser les données hybrides
+                    etf_item = {
+                        'symbol': hybrid_data.symbol,
+                        'isin': hybrid_data.isin,
+                        'name': hybrid_data.name,
+                        'current_price': hybrid_data.current_price,
+                        'change': hybrid_data.change,
+                        'change_percent': hybrid_data.change_percent,
+                        'volume': hybrid_data.volume,
+                        'market_cap': hybrid_data.market_cap,
+                        'currency': hybrid_data.currency,
+                        'exchange': hybrid_data.exchange,
+                        'sector': hybrid_data.sector,
+                        'last_update': hybrid_data.last_update.isoformat(),
+                        'source': hybrid_data.source  # Indique la source des données
+                    }
                     
                     etf_data.append(etf_item)
                     
