@@ -2,9 +2,11 @@
 Endpoints pour les données de marché réelles
 """
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Body
+from pydantic import BaseModel
 from typing import List, Dict, Optional
 from datetime import datetime
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.api.deps import get_current_active_user
@@ -13,6 +15,10 @@ from app.services.real_market_data import get_real_market_data_service, RealMark
 from app.schemas.etf import ETFResponse
 from app.services.portfolio_service import get_portfolio_calculation_service
 from app.services.enhanced_market_data import get_enhanced_market_service
+from app.services.etf_catalog import get_etf_catalog_service
+from app.services.multi_source_etf_data import MultiSourceETFDataService
+from app.services.cached_etf_service import get_cached_etf_service
+import random
 
 router = APIRouter()
 
@@ -128,15 +134,13 @@ async def get_real_etf_data(
                 }
                 etf_data.append(etf_item)
         else:
-            # Utiliser le nouveau service dynamique avec scraping
-            logger.info(f"Récupération dynamique temps réel pour {len(etfs_from_db)} ETFs")
+            # Utiliser le service de cache intelligent pour des réponses plus rapides
+            logger.info(f"Utilisation du service de cache intelligent pour {len(etfs_from_db)} ETFs")
             
-            from app.services.dynamic_etf_service import get_dynamic_etf_service
+            cached_service = get_cached_etf_service()
             
-            dynamic_service = get_dynamic_etf_service()
-            
-            # Récupérer toutes les données temps réel
-            real_etf_data = await dynamic_service.get_all_realtime_data_for_etf_list()
+            # Récupérer les données depuis le cache (rapide) ou sources externes (en arrière-plan)
+            real_etf_data = await cached_service.get_all_cached_etfs(db)
             
             for etf_data_point in real_etf_data:
                 try:
@@ -153,9 +157,11 @@ async def get_real_etf_data(
                         'exchange': etf_data_point.exchange,
                         'sector': etf_data_point.sector,
                         'last_update': etf_data_point.last_update.isoformat(),
-                        'source': etf_data_point.source.value,  # Indique la source des données
+                        'source': etf_data_point.source,
                         'confidence_score': etf_data_point.confidence_score,
-                        'is_real_data': etf_data_point.source.value in ['yahoo_scraping', 'boursorama_scraping', 'yahoo_finance', 'alpha_vantage']
+                        'is_real_data': etf_data_point.source not in ['database_cache', 'fallback'],
+                        'data_quality': etf_data_point.data_quality,
+                        'reliability_icon': etf_data_point.reliability_icon
                     }
                     
                     etf_data.append(etf_item)
@@ -178,6 +184,126 @@ async def get_real_etf_data(
         import traceback
         logger.error(f"Erreur complète: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des données temps réel: {str(e)}")
+
+@router.get(
+    "/real-etfs-fast",
+    tags=["market"],
+    summary="ETFs avec réponse rapide (cache + mise à jour arrière-plan)",
+    description="""
+    Endpoint optimisé qui retourne immédiatement les données en cache 
+    et lance une mise à jour en arrière-plan pour la prochaine requête.
+    """
+)
+async def get_real_etf_data_fast(
+    background_tasks: BackgroundTasks,
+    db = Depends(get_db),
+    cached_service = Depends(get_cached_etf_service)
+):
+    """
+    Réponse rapide avec données en cache + mise à jour en arrière-plan
+    """
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # 1. Récupérer rapidement les données en cache
+        logger.info("🚀 Récupération rapide des données ETF...")
+        
+        real_etf_data = await cached_service.get_all_cached_etfs(db)
+        
+        # 2. Programmer une mise à jour en arrière-plan pour les données expirées
+        background_tasks.add_task(refresh_expired_data_background, db)
+        
+        # 3. Formatter les données pour la réponse
+        etf_data = []
+        for etf_data_point in real_etf_data:
+            try:
+                etf_item = {
+                    'symbol': etf_data_point.symbol,
+                    'isin': etf_data_point.isin,
+                    'name': etf_data_point.name,
+                    'current_price': etf_data_point.current_price,
+                    'change': etf_data_point.change,
+                    'change_percent': etf_data_point.change_percent,
+                    'volume': etf_data_point.volume,
+                    'market_cap': etf_data_point.market_cap,
+                    'currency': etf_data_point.currency,
+                    'exchange': etf_data_point.exchange,
+                    'sector': etf_data_point.sector,
+                    'last_update': etf_data_point.last_update.isoformat(),
+                    'source': etf_data_point.source,
+                    'confidence_score': etf_data_point.confidence_score,
+                    'is_real_data': etf_data_point.source not in ['database_cache', 'fallback'],
+                    'data_quality': etf_data_point.data_quality,
+                    'reliability_icon': etf_data_point.reliability_icon
+                }
+                
+                etf_data.append(etf_item)
+                
+            except Exception as etf_error:
+                logger.error(f"Erreur format ETF {etf_data_point.isin if hasattr(etf_data_point, 'isin') else 'unknown'}: {etf_error}")
+                continue
+        
+        logger.info(f"✅ Réponse rapide avec {len(etf_data)} ETFs (mise à jour en arrière-plan)")
+        
+        return {
+            'status': 'success',
+            'count': len(etf_data),
+            'data': etf_data,
+            'timestamp': datetime.now().isoformat(),
+            'source': 'Cached + Background Refresh',
+            'message': 'Données en cache retournées, mise à jour en cours...'
+        }
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"Erreur endpoint rapide: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur récupération rapide: {str(e)}")
+
+async def refresh_expired_data_background(db: Session):
+    """Tâche de fond pour rafraîchir les données expirées"""
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info("🔄 Début mise à jour arrière-plan...")
+        
+        cached_service = get_cached_etf_service()
+        
+        # Identifier et rafraîchir seulement les données expirées
+        from app.models.etf import ETF, MarketData
+        from datetime import timedelta
+        
+        cutoff_time = datetime.now() - timedelta(minutes=cached_service.cache_duration_minutes)
+        
+        # ETFs avec données expirées ou manquantes
+        etfs_to_refresh = db.query(ETF).outerjoin(MarketData).filter(
+            (MarketData.time < cutoff_time) | (MarketData.time.is_(None))
+        ).all()
+        
+        logger.info(f"🎯 {len(etfs_to_refresh)} ETFs à rafraîchir en arrière-plan")
+        
+        # Rafraîchir en lots pour éviter la surcharge
+        for i in range(0, len(etfs_to_refresh), 5):  # Lots de 5
+            batch = etfs_to_refresh[i:i+5]
+            
+            tasks = []
+            for etf in batch:
+                symbol = getattr(etf, 'symbol', etf.isin)
+                tasks.append(cached_service.get_cached_etf_data(symbol, db))
+            
+            # Traiter le lot
+            await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Pause entre les lots
+            await asyncio.sleep(0.5)
+        
+        logger.info("✅ Mise à jour arrière-plan terminée")
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"❌ Erreur mise à jour arrière-plan: {e}")
 
 @router.get("/dashboard-stats")
 async def get_dashboard_statistics():
@@ -231,6 +357,413 @@ async def get_dashboard_statistics():
         import traceback
         logger.error(f"Erreur dashboard stats: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des statistiques: {str(e)}")
+
+@router.get("/real-etfs", 
+    tags=["real-market"],
+    summary="Données ETF réelles depuis sources externes",
+    description="Récupère la liste des ETFs avec données de marché réelles depuis Yahoo Finance, Alpha Vantage, etc."
+)
+async def get_real_etfs_from_external_sources(db: Session = Depends(get_db)):
+    """Endpoint pour récupérer les ETFs avec données réelles depuis APIs + scraping + cache BDD"""
+    try:
+        # Utiliser le nouveau service en cache
+        cached_service = get_cached_etf_service()
+        
+        # Récupérer toutes les données avec cache intelligent
+        all_etf_data = await cached_service.get_all_cached_etfs(db)
+        
+        # Récupérer les infos du catalogue pour enrichir
+        catalog_service = get_etf_catalog_service()
+        catalog_etfs = {etf.symbol: etf for etf in catalog_service.get_all_etfs()}
+        
+        etf_data = []
+        for real_data in all_etf_data:
+            try:
+                catalog_etf = catalog_etfs.get(real_data.symbol)
+                
+                etf_data.append({
+                    'symbol': real_data.symbol,
+                    'isin': real_data.isin,
+                    'name': real_data.name,
+                    'current_price': real_data.current_price,
+                    'change': real_data.change,
+                    'change_percent': real_data.change_percent,
+                    'volume': real_data.volume,
+                    'market_cap': real_data.market_cap,
+                    'currency': real_data.currency,
+                    'exchange': real_data.exchange,
+                    'sector': real_data.sector,
+                    'last_update': real_data.last_update.isoformat(),
+                    'source': real_data.source,
+                    'confidence_score': real_data.confidence_score,
+                    'is_real_data': True,
+                    'data_quality': real_data.data_quality,
+                    'reliability_icon': real_data.reliability_icon,
+                    'ter': catalog_etf.ter if catalog_etf else None,
+                    'aum': catalog_etf.aum if catalog_etf else None,
+                    'region': catalog_etf.region if catalog_etf else None,
+                    'benchmark': catalog_etf.benchmark if catalog_etf else None,
+                    'description': catalog_etf.description if catalog_etf else None
+                })
+                
+            except Exception as e:
+                print(f"❌ Erreur traitement {real_data.symbol}: {e}")
+                continue
+        
+        # Trier par qualité des données puis par confiance
+        etf_data.sort(key=lambda x: (x['confidence_score'], x['current_price']), reverse=True)
+        
+        return {
+            'status': 'success',
+            'count': len(etf_data),
+            'data': etf_data,
+            'metadata': {
+                'source': 'cached_realtime_data',
+                'last_update': datetime.now().isoformat(),
+                'successful_fetches': len(etf_data),
+                'cache_enabled': True,
+                'data_sources': ['scraping', 'yahoo_finance', 'alpha_vantage', 'database_cache']
+            }
+        }
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur real-etfs: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur récupération ETFs: {str(e)}")
+
+@router.post("/refresh-all-etfs",
+    tags=["real-market"],
+    summary="Forcer le rafraîchissement de tous les ETFs"
+)
+async def force_refresh_all_etfs(db: Session = Depends(get_db)):
+    """Force le rafraîchissement de toutes les données ETF"""
+    try:
+        cached_service = get_cached_etf_service()
+        results = await cached_service.force_refresh_all(db)
+        
+        return {
+            'status': 'success',
+            'message': 'Rafraîchissement terminé',
+            'results': results
+        }
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur refresh: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur rafraîchissement: {str(e)}")
+
+@router.get("/watchlist",
+    tags=["watchlist"],
+    summary="Récupérer la watchlist de l'utilisateur"
+)
+async def get_user_watchlist(
+    current_user: User = Depends(get_current_active_user),
+    db = Depends(get_db)
+):
+    """Récupère la watchlist de l'utilisateur avec données ETF enrichies"""
+    try:
+        from app.models.watchlist import Watchlist
+        
+        # Récupérer les ETFs en watchlist
+        watchlist_items = db.query(Watchlist).filter(
+            Watchlist.user_id == current_user.id
+        ).all()
+        
+        catalog_service = get_etf_catalog_service()
+        watchlist_data = []
+        
+        # Initialiser le service multi-sources
+        data_service = MultiSourceETFDataService()
+        
+        for item in watchlist_items:
+            # Récupérer les infos ETF depuis le catalogue
+            etf_info = catalog_service.get_etf_by_isin(item.etf_isin)
+            
+            if etf_info:
+                try:
+                    # Récupérer les données réelles
+                    real_data = await data_service.get_etf_data(etf_info.symbol)
+                    
+                    if real_data:
+                        watchlist_data.append({
+                            'id': str(item.id),
+                            'symbol': real_data.symbol,
+                            'name': real_data.name,
+                            'current_price': real_data.current_price,
+                            'change': real_data.change,
+                            'change_percent': real_data.change_percent,
+                            'volume': real_data.volume,
+                            'sector': real_data.sector,
+                            'currency': real_data.currency,
+                            'addedAt': item.created_at.isoformat(),
+                            'isAlertActive': False,
+                            'tags': [],
+                            'source': real_data.source.value,
+                            'confidence_score': real_data.confidence_score,
+                            'is_real_data': True
+                        })
+                    else:
+                        print(f"⚠️ Pas de données réelles pour {etf_info.symbol} dans la watchlist")
+                        
+                except Exception as e:
+                    print(f"❌ Erreur récupération données watchlist pour {etf_info.symbol}: {e}")
+                    continue
+        
+        return {
+            'status': 'success',
+            'count': len(watchlist_data),
+            'data': watchlist_data
+        }
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur watchlist: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur récupération watchlist: {str(e)}")
+
+class WatchlistAddRequest(BaseModel):
+    etf_symbol: str
+
+@router.post("/watchlist",
+    tags=["watchlist"], 
+    summary="Ajouter un ETF à la watchlist"
+)
+async def add_to_watchlist(
+    request_data: WatchlistAddRequest,
+    current_user: User = Depends(get_current_active_user),
+    db = Depends(get_db)
+):
+    """Ajoute un ETF à la watchlist de l'utilisateur"""
+    try:
+        from app.models.watchlist import Watchlist
+        
+        etf_symbol = request_data.etf_symbol
+        
+        catalog_service = get_etf_catalog_service()
+        etf_info = catalog_service.get_etf_by_symbol(etf_symbol)
+        
+        if not etf_info:
+            raise HTTPException(status_code=404, detail="ETF non trouvé dans le catalogue")
+        
+        # Vérifier si déjà en watchlist
+        existing = db.query(Watchlist).filter(
+            Watchlist.user_id == current_user.id,
+            Watchlist.etf_isin == etf_info.isin
+        ).first()
+        
+        if existing:
+            raise HTTPException(status_code=400, detail="ETF déjà dans la watchlist")
+        
+        # Ajouter à la watchlist
+        watchlist_item = Watchlist(
+            user_id=current_user.id,
+            etf_isin=etf_info.isin
+        )
+        
+        db.add(watchlist_item)
+        db.commit()
+        db.refresh(watchlist_item)
+        
+        return {
+            'status': 'success',
+            'message': f'ETF {etf_symbol} ajouté à la watchlist',
+            'data': {
+                'id': str(watchlist_item.id),
+                'etf_isin': watchlist_item.etf_isin,
+                'symbol': etf_symbol,
+                'added_date': watchlist_item.created_at.isoformat()
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        import traceback
+        print(f"Erreur ajout watchlist: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur ajout watchlist: {str(e)}")
+
+@router.delete("/watchlist/{etf_symbol}",
+    tags=["watchlist"],
+    summary="Supprimer un ETF de la watchlist"
+)
+async def remove_from_watchlist(
+    etf_symbol: str,
+    current_user: User = Depends(get_current_active_user),
+    db = Depends(get_db)
+):
+    """Supprime un ETF de la watchlist"""
+    try:
+        from app.models.watchlist import Watchlist
+        
+        catalog_service = get_etf_catalog_service()
+        etf_info = catalog_service.get_etf_by_symbol(etf_symbol)
+        
+        if not etf_info:
+            raise HTTPException(status_code=404, detail="ETF non trouvé")
+        
+        watchlist_item = db.query(Watchlist).filter(
+            Watchlist.user_id == current_user.id,
+            Watchlist.etf_isin == etf_info.isin
+        ).first()
+        
+        if not watchlist_item:
+            raise HTTPException(status_code=404, detail="ETF non trouvé dans la watchlist")
+        
+        db.delete(watchlist_item)
+        db.commit()
+        
+        return {
+            'status': 'success',
+            'message': f'ETF {etf_symbol} retiré de la watchlist'
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        import traceback
+        print(f"Erreur suppression watchlist: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur suppression watchlist: {str(e)}")
+
+@router.delete("/watchlist",
+    tags=["watchlist"],
+    summary="Supprimer toute la watchlist de l'utilisateur"
+)
+async def clear_watchlist(
+    current_user: User = Depends(get_current_active_user),
+    db = Depends(get_db)
+):
+    """Supprime tous les ETFs de la watchlist de l'utilisateur"""
+    try:
+        from app.models.watchlist import Watchlist
+        
+        # Supprimer tous les items de la watchlist de l'utilisateur
+        deleted_count = db.query(Watchlist).filter(
+            Watchlist.user_id == current_user.id
+        ).delete()
+        
+        db.commit()
+        
+        return {
+            'status': 'success',
+            'message': f'Watchlist vidée ({deleted_count} ETFs supprimés)',
+            'deleted_count': deleted_count
+        }
+        
+    except Exception as e:
+        db.rollback()
+        import traceback
+        print(f"Erreur suppression watchlist complète: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur suppression watchlist: {str(e)}")
+
+@router.get("/etf-details/{isin}",
+    tags=["real-market"],
+    summary="Récupérer les détails d'un ETF par ISIN"
+)
+async def get_etf_details_by_isin(isin: str):
+    """Récupère les informations détaillées d'un ETF à partir de son ISIN"""
+    try:
+        catalog_service = get_etf_catalog_service()
+        etf_info = catalog_service.get_etf_by_isin(isin)
+        
+        if not etf_info:
+            raise HTTPException(status_code=404, detail=f"ETF avec ISIN {isin} non trouvé")
+        
+        return {
+            'status': 'success',
+            'data': {
+                'isin': etf_info.isin,
+                'symbol': etf_info.symbol,
+                'name': etf_info.name,
+                'sector': etf_info.sector,
+                'region': etf_info.region,
+                'currency': etf_info.currency,
+                'ter': etf_info.ter,
+                'aum': etf_info.aum,
+                'exchange': etf_info.exchange,
+                'description': etf_info.description,
+                'benchmark': etf_info.benchmark,
+                'inception_date': etf_info.inception_date,
+                'dividend_frequency': etf_info.dividend_frequency,
+                'replication_method': etf_info.replication_method
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"Erreur récupération détails ETF: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur récupération détails: {str(e)}")
+
+@router.get("/search-etfs",
+    tags=["real-market"],
+    summary="Rechercher des ETFs avec données réelles"
+)
+async def search_etfs_with_real_data(
+    q: str,
+    limit: int = 20
+):
+    """Recherche d'ETFs par nom, secteur ou symbole avec données réelles"""
+    try:
+        catalog_service = get_etf_catalog_service()
+        search_results = catalog_service.search_etfs(q)
+        
+        # Limiter les résultats
+        search_results = search_results[:limit]
+        
+        # Initialiser le service multi-sources
+        data_service = MultiSourceETFDataService()
+        
+        etf_data = []
+        for etf in search_results:
+            try:
+                # Récupérer les données réelles
+                real_data = await data_service.get_etf_data(etf.symbol)
+                
+                if real_data:
+                    etf_data.append({
+                        'symbol': real_data.symbol,
+                        'isin': real_data.isin,
+                        'name': real_data.name,
+                        'current_price': real_data.current_price,
+                        'change': real_data.change,
+                        'change_percent': real_data.change_percent,
+                        'volume': real_data.volume,
+                        'sector': real_data.sector,
+                        'currency': real_data.currency,
+                        'exchange': real_data.exchange,
+                        'ter': etf.ter,
+                        'aum': etf.aum,
+                        'region': etf.region,
+                        'description': etf.description,
+                        'source': real_data.source.value,
+                        'confidence_score': real_data.confidence_score,
+                        'is_real_data': True
+                    })
+                else:
+                    print(f"⚠️ Pas de données réelles pour {etf.symbol} dans la recherche")
+                    
+            except Exception as e:
+                print(f"❌ Erreur récupération données pour {etf.symbol}: {e}")
+                continue
+        
+        return {
+            'status': 'success',
+            'query': q,
+            'count': len(etf_data),
+            'data': etf_data,
+            'metadata': {
+                'source': 'real_data_search',
+                'searched_in_catalog': len(search_results),
+                'real_data_found': len(etf_data)
+            }
+        }
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur recherche: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Erreur recherche ETFs: {str(e)}")
 
 @router.get("/real-indices")
 async def get_real_market_indices(

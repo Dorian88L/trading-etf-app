@@ -48,8 +48,10 @@ class ETFDataPoint:
     exchange: str
     sector: str
     last_update: datetime
-    source: DataSource
+    source: Union[DataSource, str]
     confidence_score: float  # 0.0 à 1.0, indique la fiabilité des données
+    data_quality: Optional[str] = None  # Qualité des données ('high', 'medium', 'low', etc.)
+    reliability_icon: Optional[str] = None  # Icône pour l'interface ('✅', '⚠️', '🌐', etc.)
     
 class MultiSourceETFDataService:
     """
@@ -483,44 +485,8 @@ class MultiSourceETFDataService:
             return None
 
     def _generate_hybrid_data(self, symbol: str) -> ETFDataPoint:
-        """Génère des données hybrides réalistes basées sur les tendances du marché"""
-        etf_info = self.european_etfs.get(symbol, {})
-        
-        # Base de prix réaliste selon le secteur
-        sector = etf_info.get('sector', 'Unknown')
-        if 'Clean Energy' in sector:
-            base_price = random.uniform(15, 45)
-        elif 'Emerging Markets' in sector:
-            base_price = random.uniform(20, 60)
-        elif 'Global Equity' in sector:
-            base_price = random.uniform(60, 120)
-        else:
-            base_price = random.uniform(30, 80)
-            
-        # Variation réaliste (-3% à +3%)
-        change_percent = random.uniform(-3, 3)
-        change = base_price * (change_percent / 100)
-        current_price = base_price + change
-        
-        # Volume réaliste
-        volume = random.randint(50000, 2000000)
-        
-        return ETFDataPoint(
-            symbol=symbol,
-            isin=etf_info.get('isin', ''),
-            name=etf_info.get('name', symbol),
-            current_price=round(current_price, 2),
-            change=round(change, 2),
-            change_percent=round(change_percent, 2),
-            volume=volume,
-            market_cap=None,
-            currency='EUR',
-            exchange=etf_info.get('exchange', 'Unknown'),
-            sector=sector,
-            last_update=datetime.now(),
-            source=DataSource.HYBRID,
-            confidence_score=0.6
-        )
+        """DÉSACTIVÉ - Pas de données simulées autorisées"""
+        raise NotImplementedError("Génération de données simulées désactivée - utilisation de données réelles uniquement")
 
     def _convert_to_yahoo_symbol(self, symbol: str) -> str:
         """Convertit un symbole ETF au format Yahoo Finance"""
@@ -576,9 +542,41 @@ class MultiSourceETFDataService:
                 logger.warning(f"Erreur source {source_func.__name__} pour {symbol}: {e}")
                 continue
         
-        # Si aucune source n'a fonctionné, générer des données hybrides
-        logger.warning(f"Aucune source disponible pour {symbol}, génération de données hybrides")
-        return self._generate_hybrid_data(symbol)
+        # Si aucune source API n'a fonctionné, utiliser le scraping en fallback
+        logger.warning(f"APIs indisponibles pour {symbol}, tentative de scraping")
+        
+        # Importer et utiliser le service de scraping
+        from app.services.etf_scraping_service import ETFScrapingService
+        scraping_service = ETFScrapingService()
+        
+        try:
+            scraped_data = await scraping_service.get_etf_data(symbol)
+            if scraped_data:
+                # Convertir ScrapedETFData en ETFDataPoint
+                etf_info = self.european_etfs.get(symbol, {})
+                return ETFDataPoint(
+                    symbol=symbol,
+                    isin=scraped_data.isin or etf_info.get('isin', ''),
+                    name=scraped_data.name,
+                    current_price=scraped_data.current_price,
+                    change=scraped_data.change,
+                    change_percent=scraped_data.change_percent,
+                    volume=scraped_data.volume or 0,
+                    market_cap=None,
+                    currency=scraped_data.currency,
+                    exchange=scraped_data.exchange,
+                    sector=etf_info.get('sector', 'Unknown'),
+                    last_update=scraped_data.last_update,
+                    source=DataSource.CACHE,  # Marquer comme scraping
+                    confidence_score=0.9,  # Haute confiance pour scraping
+                    data_quality='scraped_realtime',
+                    reliability_icon='🌐'
+                )
+        except Exception as e:
+            logger.error(f"Erreur scraping pour {symbol}: {e}")
+            
+        logger.error(f"Toutes les sources échouées pour {symbol}")
+        return None
 
     async def get_etf_data_by_isin(self, isin: str) -> Optional[ETFDataPoint]:
         """

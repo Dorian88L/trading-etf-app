@@ -46,12 +46,24 @@
     @apply btn bg-green-600 text-white hover:bg-green-700 h-10 px-4 py-2;
   }
   
+  .btn-responsive {
+    @apply btn h-8 px-2 py-1 text-xs sm:h-10 sm:px-4 sm:py-2 sm:text-sm;
+  }
+  
   .card {
     @apply bg-white rounded-lg border border-gray-200 p-6 shadow-soft;
   }
   
+  .card-responsive {
+    @apply bg-white rounded-lg border border-gray-200 p-3 sm:p-4 lg:p-6 shadow-soft;
+  }
+  
   .input {
     @apply flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  
+  .input-responsive {
+    @apply flex h-8 sm:h-10 w-full rounded-md border border-gray-300 bg-white px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm file:border-0 file:bg-transparent file:text-xs sm:file:text-sm file:font-medium placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
   
   .label {
@@ -135,4 +147,88 @@
 .card-hover:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Améliorations responsive */
+@layer utilities {
+  .text-responsive {
+    @apply text-sm lg:text-base;
+  }
+  
+  .text-responsive-sm {
+    @apply text-xs lg:text-sm;
+  }
+  
+  .padding-responsive {
+    @apply p-3 lg:p-4;
+  }
+  
+  .margin-responsive {
+    @apply m-2 lg:m-4;
+  }
+  
+  .space-responsive {
+    @apply space-x-2 lg:space-x-4;
+  }
+  
+  .grid-responsive {
+    @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+  
+  .sidebar-width {
+    @apply w-64 lg:w-72;
+  }
+}
+
+/* Amélioration des breakpoints pour mobile */
+@media (max-width: 640px) {
+  .mobile-stack {
+    @apply flex-col !important;
+  }
+  
+  .mobile-full {
+    @apply w-full !important;
+  }
+  
+  .mobile-hidden {
+    @apply hidden !important;
+  }
+  
+  .mobile-text-sm {
+    @apply text-sm !important;
+  }
+}
+
+/* Amélioration du focus pour l'accessibilité */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+/* Animation pour les modales responsive */
+@keyframes modal-slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-modal-slide-up {
+  animation: modal-slide-up 0.3s ease-out;
+}
+
+/* Amélioration des z-index pour éviter les conflits */
+.z-modal {
+  z-index: 9999;
+}
+
+.z-dropdown {
+  z-index: 1000;
+}
+
+.z-sidebar {
+  z-index: 40;
 }

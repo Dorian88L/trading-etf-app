@@ -432,18 +432,18 @@ class ETFCatalogService:
                 if not existing_etf:
                     new_etf = ETF(
                         isin=etf_info.isin,
+                        symbol=symbol,  # Ajouter le symbole
                         name=etf_info.name,
                         sector=etf_info.sector,
                         currency=etf_info.currency,
                         ter=etf_info.ter,
                         aum=etf_info.aum,
-                        exchange=etf_info.exchange,
-                        inception_date=etf_info.inception_date,
-                        benchmark=etf_info.benchmark
+                        exchange=etf_info.exchange
                     )
                     db.add(new_etf)
                 else:
                     # Mettre à jour les informations
+                    existing_etf.symbol = symbol
                     existing_etf.name = etf_info.name
                     existing_etf.sector = etf_info.sector
                     existing_etf.ter = etf_info.ter

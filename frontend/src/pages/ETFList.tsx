@@ -66,6 +66,7 @@ const ETFList: React.FC = () => {
   const [selectedETF, setSelectedETF] = useState<RealETFData | null>(null);
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [userWatchlist, setUserWatchlist] = useState<any[]>([]);
   const [currencyFilter, setCurrencyFilter] = useState('');
   const [exchangeFilter, setExchangeFilter] = useState('');
   const [showDataSourcesStatus, setShowDataSourcesStatus] = useState(false);
@@ -74,8 +75,30 @@ const ETFList: React.FC = () => {
 
   useEffect(() => {
     fetchETFs();
+    fetchUserWatchlist();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchUserWatchlist = async () => {
+    try {
+      const response = await fetch('/api/v1/real-market/watchlist', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserWatchlist(data.data || []);
+        // Extraire les symboles pour l'interface
+        const symbols = (data.data || []).map((item: any) => item.symbol);
+        setWatchlist(symbols);
+      }
+    } catch (error) {
+      console.error('Erreur chargement watchlist:', error);
+    }
+  };
 
   const filteredETFs = useMemo(() => {
     if (!etfs) return [];
@@ -142,12 +165,52 @@ const ETFList: React.FC = () => {
     }
   };
 
-  const toggleWatchlist = (symbol: string) => {
-    setWatchlist(prev => 
-      prev.includes(symbol) 
-        ? prev.filter(s => s !== symbol)
-        : [...prev, symbol]
-    );
+  const toggleWatchlist = async (symbol: string) => {
+    try {
+      // Mise à jour optimiste de l'interface
+      if (watchlist.includes(symbol)) {
+        setWatchlist(prev => prev.filter(s => s !== symbol));
+        
+        // Supprimer de la watchlist
+        const response = await fetch(`/api/v1/real-market/watchlist/${symbol}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          // Rollback en cas d'erreur
+          setWatchlist(prev => [...prev, symbol]);
+          console.error('Erreur suppression watchlist');
+        }
+      } else {
+        setWatchlist(prev => [...prev, symbol]);
+        
+        // Ajouter à la watchlist
+        const response = await fetch('/api/v1/real-market/watchlist', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            etf_symbol: symbol
+          })
+        });
+
+        if (!response.ok) {
+          // Rollback en cas d'erreur
+          setWatchlist(prev => prev.filter(s => s !== symbol));
+          console.error('Erreur ajout watchlist');
+        }
+      }
+    } catch (error) {
+      console.error('Erreur toggle watchlist:', error);
+      // Recharger la watchlist en cas d'erreur
+      await fetchUserWatchlist();
+    }
   };
 
   const toggleFavorite = (symbol: string) => {
@@ -228,7 +291,10 @@ const ETFList: React.FC = () => {
               📊 Sources
             </button>
             <button
-              onClick={fetchETFs}
+              onClick={() => {
+                fetchETFs();
+                fetchUserWatchlist();
+              }}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
             >
               🔄 Actualiser

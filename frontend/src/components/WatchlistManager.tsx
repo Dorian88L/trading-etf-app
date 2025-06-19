@@ -55,7 +55,7 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
   useEffect(() => {
     if (isOpen) {
       fetchAvailableETFs();
-      loadWatchlistsFromStorage();
+      fetchUserWatchlist();
     }
   }, [isOpen]);
 
@@ -80,6 +80,30 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
     }
   };
 
+  const fetchUserWatchlist = async () => {
+    try {
+      const response = await fetch('/api/v1/real-market/watchlist', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Convertir les données backend en format attendu
+        const watchlistData = data.data || [];
+        setWatchlists({
+          'favorites': watchlistData,
+          'monitoring': [],
+          'opportunities': []
+        });
+      }
+    } catch (error) {
+      console.error('Erreur chargement watchlist:', error);
+    }
+  };
+
   const loadWatchlistsFromStorage = () => {
     const stored = localStorage.getItem('trading_watchlists');
     if (stored) {
@@ -96,37 +120,57 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
     setWatchlists(newWatchlists);
   };
 
-  const addToWatchlist = (etf: any, watchlistName: string) => {
-    const newItem: WatchlistItem = {
-      id: `${etf.symbol}_${Date.now()}`,
-      symbol: etf.symbol,
-      name: etf.name,
-      current_price: etf.current_price || 0,
-      change: etf.change || 0,
-      change_percent: etf.change_percent || 0,
-      volume: etf.volume || 0,
-      sector: etf.sector || 'N/A',
-      currency: etf.currency || 'EUR',
-      addedAt: new Date().toISOString(),
-      isAlertActive: false,
-      tags: []
-    };
+  const addToWatchlist = async (etf: any, watchlistName: string) => {
+    try {
+      const response = await fetch('/api/v1/real-market/watchlist', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          etf_symbol: etf.symbol
+        })
+      });
 
-    const newWatchlists = {
-      ...watchlists,
-      [watchlistName]: [...(watchlists[watchlistName] || []), newItem]
-    };
-
-    saveWatchlistsToStorage(newWatchlists);
+      if (response.ok) {
+        // Recharger la watchlist depuis le serveur
+        await fetchUserWatchlist();
+      } else {
+        const error = await response.json();
+        console.error('Erreur ajout watchlist:', error.detail);
+      }
+    } catch (error) {
+      console.error('Erreur ajout watchlist:', error);
+    }
   };
 
-  const removeFromWatchlist = (itemId: string, watchlistName: string) => {
-    const newWatchlists = {
-      ...watchlists,
-      [watchlistName]: watchlists[watchlistName].filter(item => item.id !== itemId)
-    };
+  const removeFromWatchlist = async (itemId: string, watchlistName: string) => {
+    try {
+      // Trouver l'ETF par ID dans la watchlist actuelle
+      const currentList = watchlists[watchlistName] || [];
+      const etfToRemove = currentList.find(item => item.id === itemId);
+      
+      if (etfToRemove) {
+        const response = await fetch(`/api/v1/real-market/watchlist/${etfToRemove.symbol}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-    saveWatchlistsToStorage(newWatchlists);
+        if (response.ok) {
+          // Recharger la watchlist depuis le serveur
+          await fetchUserWatchlist();
+        } else {
+          const error = await response.json();
+          console.error('Erreur suppression watchlist:', error.detail);
+        }
+      }
+    } catch (error) {
+      console.error('Erreur suppression watchlist:', error);
+    }
   };
 
   const createNewWatchlist = () => {
@@ -221,72 +265,74 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-[95vh] max-h-screen flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div className="flex items-center space-x-3">
-            <EyeIcon className="h-8 w-8 text-blue-600" />
+        <div className="flex items-center justify-between p-4 lg:p-6 border-b">
+          <div className="flex items-center space-x-2 lg:space-x-3">
+            <EyeIcon className="h-6 w-6 lg:h-8 lg:w-8 text-blue-600" />
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Gestionnaire de Watchlists</h2>
-              <p className="text-sm text-gray-600">Suivez vos ETFs préférés et configurez des alertes</p>
+              <h2 className="text-lg lg:text-2xl font-bold text-gray-900">Gestionnaire de Watchlists</h2>
+              <p className="text-xs lg:text-sm text-gray-600 hidden sm:block">Suivez vos ETFs préférés et configurez des alertes</p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <XMarkIcon className="h-6 w-6 text-gray-500" />
+            <XMarkIcon className="h-5 w-5 lg:h-6 lg:w-6 text-gray-500" />
           </button>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
           {/* Sidebar des watchlists */}
-          <div className="w-1/4 border-r bg-gray-50 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Mes Watchlists</h3>
+          <div className="w-full lg:w-1/4 border-r lg:border-r border-b lg:border-b-0 bg-gray-50 p-3 lg:p-4">
+            <div className="flex items-center justify-between mb-3 lg:mb-4">
+              <h3 className="font-semibold text-gray-900 text-sm lg:text-base">Mes Watchlists</h3>
               <button
                 onClick={() => setShowCreateNew(true)}
                 className="p-1 hover:bg-gray-200 rounded"
               >
-                <PlusIcon className="h-5 w-5 text-gray-600" />
+                <PlusIcon className="h-4 w-4 lg:h-5 lg:w-5 text-gray-600" />
               </button>
             </div>
 
             {/* Liste des watchlists */}
-            <div className="space-y-2">
-              {Object.keys(watchlists).map(name => (
-                <button
-                  key={name}
-                  onClick={() => setActiveWatchlist(name)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
-                    activeWatchlist === name
-                      ? 'bg-blue-100 text-blue-900'
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2">
-                    {getWatchlistIcon(name)}
-                    <span className="font-medium">{getWatchlistDisplayName(name)}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
-                      {watchlists[name].length}
-                    </span>
-                    {!['favorites', 'monitoring', 'opportunities'].includes(name) && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteWatchlist(name);
-                        }}
-                        className="p-1 hover:bg-red-100 rounded"
-                      >
-                        <XMarkIcon className="h-4 w-4 text-red-500" />
-                      </button>
-                    )}
-                  </div>
-                </button>
-              ))}
+            <div className="space-y-1 lg:space-y-2 overflow-x-auto lg:overflow-x-visible">
+              <div className="flex lg:flex-col space-x-2 lg:space-x-0 lg:space-y-2 min-w-max lg:min-w-0">
+                {Object.keys(watchlists).map(name => (
+                  <button
+                    key={name}
+                    onClick={() => setActiveWatchlist(name)}
+                    className={`flex items-center justify-between p-2 lg:p-3 rounded-lg text-left transition-colors whitespace-nowrap lg:w-full ${
+                      activeWatchlist === name
+                        ? 'bg-blue-100 text-blue-900'
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-1 lg:space-x-2">
+                      {getWatchlistIcon(name)}
+                      <span className="font-medium text-xs lg:text-sm">{getWatchlistDisplayName(name)}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
+                        {watchlists[name].length}
+                      </span>
+                      {!['favorites', 'monitoring', 'opportunities'].includes(name) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteWatchlist(name);
+                          }}
+                          className="p-1 hover:bg-red-100 rounded"
+                        >
+                          <XMarkIcon className="h-3 w-3 lg:h-4 lg:w-4 text-red-500" />
+                        </button>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Formulaire nouvelle watchlist */}
@@ -324,62 +370,62 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
           {/* Contenu principal */}
           <div className="flex-1 flex flex-col">
             {/* Tab content header */}
-            <div className="p-4 border-b bg-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+            <div className="p-3 lg:p-4 border-b bg-white">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center space-x-2 lg:space-x-3">
                   {getWatchlistIcon(activeWatchlist)}
-                  <h3 className="text-xl font-semibold text-gray-900">
+                  <h3 className="text-lg lg:text-xl font-semibold text-gray-900">
                     {getWatchlistDisplayName(activeWatchlist)}
                   </h3>
-                  <span className="bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded">
+                  <span className="bg-blue-100 text-blue-800 text-xs lg:text-sm px-2 py-1 rounded">
                     {currentWatchlist.length} ETF{currentWatchlist.length > 1 ? 's' : ''}
                   </span>
                 </div>
                 <button
                   onClick={fetchAvailableETFs}
-                  className="flex items-center space-x-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors"
+                  className="flex items-center space-x-1 lg:space-x-2 px-2 lg:px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs lg:text-sm transition-colors"
                   disabled={loading}
                 >
-                  <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                  <span>Actualiser</span>
+                  <ArrowPathIcon className={`h-3 w-3 lg:h-4 lg:w-4 ${loading ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Actualiser</span>
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden flex-col lg:flex-row">
               {/* Liste actuelle */}
-              <div className="flex-1 p-4 overflow-y-auto">
+              <div className="flex-1 p-3 lg:p-4 overflow-y-auto">
                 {currentWatchlist.length === 0 ? (
-                  <div className="text-center py-12">
-                    <EyeIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h4 className="text-lg font-medium text-gray-900 mb-2">Watchlist vide</h4>
-                    <p className="text-gray-500">Ajoutez des ETFs depuis la liste ci-contre</p>
+                  <div className="text-center py-8 lg:py-12">
+                    <EyeIcon className="h-8 w-8 lg:h-12 lg:w-12 text-gray-400 mx-auto mb-4" />
+                    <h4 className="text-base lg:text-lg font-medium text-gray-900 mb-2">Watchlist vide</h4>
+                    <p className="text-sm lg:text-base text-gray-500">Ajoutez des ETFs depuis la liste ci-dessous</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 lg:gap-4">
                     {currentWatchlist.map(item => (
-                      <div key={item.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                      <div key={item.id} className="bg-gray-50 rounded-lg p-3 lg:p-4 hover:bg-gray-100 transition-colors">
                         <div className="flex items-start justify-between">
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-2 mb-2">
-                              <h4 className="font-semibold text-gray-900">{item.symbol}</h4>
+                              <h4 className="font-semibold text-gray-900 text-sm lg:text-base">{item.symbol}</h4>
                               <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
                                 {item.sector}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-600 mb-2 line-clamp-1">{item.name}</p>
+                            <p className="text-xs lg:text-sm text-gray-600 mb-2 line-clamp-1">{item.name}</p>
                             
-                            <div className="flex items-center space-x-4 mb-2">
-                              <span className="font-semibold text-lg">
+                            <div className="flex items-center space-x-2 lg:space-x-4 mb-2">
+                              <span className="font-semibold text-sm lg:text-lg">
                                 {item.current_price.toFixed(2)} {item.currency}
                               </span>
-                              <span className={`flex items-center text-sm font-medium ${
+                              <span className={`flex items-center text-xs lg:text-sm font-medium ${
                                 item.change_percent >= 0 ? 'text-green-600' : 'text-red-600'
                               }`}>
                                 {item.change_percent >= 0 ? (
-                                  <ArrowTrendingUpIcon className="h-4 w-4 mr-1" />
+                                  <ArrowTrendingUpIcon className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />
                                 ) : (
-                                  <ArrowTrendingDownIcon className="h-4 w-4 mr-1" />
+                                  <ArrowTrendingDownIcon className="h-3 w-3 lg:h-4 lg:w-4 mr-1" />
                                 )}
                                 {item.change_percent >= 0 ? '+' : ''}{item.change_percent.toFixed(2)}%
                               </span>
@@ -401,34 +447,34 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
                             )}
                           </div>
 
-                          <div className="flex flex-col space-y-2 ml-4">
+                          <div className="flex flex-row lg:flex-col space-x-1 lg:space-x-0 lg:space-y-2 ml-2 lg:ml-4">
                             <button
                               onClick={() => toggleAlert(item.id, activeWatchlist)}
-                              className={`p-2 rounded transition-colors ${
+                              className={`p-1.5 lg:p-2 rounded transition-colors ${
                                 item.isAlertActive
                                   ? 'bg-orange-100 text-orange-600'
                                   : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                               }`}
                               title="Activer/Désactiver alerte"
                             >
-                              <BellIcon className="h-4 w-4" />
+                              <BellIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                             </button>
                             <button
                               onClick={() => {
                                 setSelectedETF(item);
                                 setShowETFDetails(true);
                               }}
-                              className="p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                              className="p-1.5 lg:p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
                               title="Voir détails"
                             >
-                              <ChartBarIcon className="h-4 w-4" />
+                              <ChartBarIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                             </button>
                             <button
                               onClick={() => removeFromWatchlist(item.id, activeWatchlist)}
-                              className="p-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
+                              className="p-1.5 lg:p-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
                               title="Supprimer"
                             >
-                              <XMarkIcon className="h-4 w-4" />
+                              <XMarkIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                             </button>
                           </div>
                         </div>
@@ -439,23 +485,23 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
               </div>
 
               {/* Panel d'ajout ETFs */}
-              <div className="w-1/3 border-l bg-gray-50 flex flex-col">
-                <div className="p-4 border-b bg-white">
-                  <h4 className="font-semibold text-gray-900 mb-3">Ajouter des ETFs</h4>
+              <div className="w-full lg:w-1/3 border-t lg:border-t-0 lg:border-l bg-gray-50 flex flex-col">
+                <div className="p-3 lg:p-4 border-b bg-white">
+                  <h4 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">Ajouter des ETFs</h4>
                   <input
                     type="text"
                     placeholder="🔍 Rechercher ETF..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex-1 overflow-y-auto p-3 lg:p-4">
                   {loading ? (
-                    <div className="text-center py-8">
-                      <ArrowPathIcon className="h-8 w-8 text-gray-400 mx-auto mb-2 animate-spin" />
-                      <p className="text-gray-500">Chargement...</p>
+                    <div className="text-center py-6 lg:py-8">
+                      <ArrowPathIcon className="h-6 w-6 lg:h-8 lg:w-8 text-gray-400 mx-auto mb-2 animate-spin" />
+                      <p className="text-gray-500 text-sm">Chargement...</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -465,7 +511,7 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
                         return (
                           <div
                             key={etf.symbol}
-                            className={`p-3 rounded-lg border transition-colors ${
+                            className={`p-2 lg:p-3 rounded-lg border transition-colors ${
                               isInWatchlist
                                 ? 'bg-green-50 border-green-200'
                                 : 'bg-white hover:bg-gray-50 border-gray-200'
@@ -474,7 +520,7 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
                             <div className="flex items-center justify-between">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2">
-                                  <span className="font-medium text-sm">{etf.symbol}</span>
+                                  <span className="font-medium text-xs lg:text-sm">{etf.symbol}</span>
                                   <span className={`text-xs font-medium ${
                                     etf.change_percent >= 0 ? 'text-green-600' : 'text-red-600'
                                   }`}>
@@ -488,10 +534,10 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
                               {!isInWatchlist ? (
                                 <button
                                   onClick={() => addToWatchlist(etf, activeWatchlist)}
-                                  className="p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                                  className="p-1.5 lg:p-2 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
                                   title="Ajouter à la watchlist"
                                 >
-                                  <PlusIcon className="h-4 w-4" />
+                                  <PlusIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                                 </button>
                               ) : (
                                 <span className="text-green-600 text-xs font-medium">

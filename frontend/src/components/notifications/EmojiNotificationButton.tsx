@@ -47,29 +47,32 @@ export const EmojiNotificationButton: React.FC<EmojiNotificationButtonProps> = (
       {/* Bouton principal */}
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="relative p-2 text-2xl hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg transition-colors"
+        className="w-full flex items-center justify-center p-2 text-xl hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg transition-colors lg:w-auto"
         disabled={isRegistering}
         title={isSubscribed ? 'Notifications activées' : 'Notifications désactivées'}
       >
-        {isSubscribed ? '🔔' : '🔕'}
+        <span className="mr-2 lg:mr-0">{isSubscribed ? '🔔' : '🔕'}</span>
+        <span className="text-sm font-medium text-gray-700 lg:hidden">
+          {isSubscribed ? 'Notifications ON' : 'Notifications OFF'}
+        </span>
         
         {/* Indicateur d'état */}
         {isSubscribed && (
-          <span className="absolute -top-1 -right-1 bg-green-500 rounded-full h-3 w-3 border-2 border-white"></span>
+          <span className="absolute -top-1 -right-1 bg-green-500 rounded-full h-3 w-3 border-2 border-white lg:block hidden"></span>
         )}
       </button>
 
       {/* Dropdown */}
       {showDropdown && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+        <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white rounded-lg shadow-lg border border-gray-200 z-50 lg:w-80">
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900 flex items-center">
+              <h3 className="font-semibold text-gray-900 flex items-center text-sm lg:text-base">
                 🔔 Notifications Trading
               </h3>
               <button
                 onClick={() => setShowDropdown(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 p-1"
               >
                 ✕
               </button>
@@ -126,7 +129,7 @@ export const EmojiNotificationButton: React.FC<EmojiNotificationButtonProps> = (
               )}
 
               {/* Actions */}
-              <div className="flex space-x-2">
+              <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
                 <button
                   onClick={handleToggleNotifications}
                   disabled={isRegistering}
@@ -148,7 +151,7 @@ export const EmojiNotificationButton: React.FC<EmojiNotificationButtonProps> = (
                 {isSubscribed && (
                   <button
                     onClick={testNotification}
-                    className="px-4 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                    className="px-4 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors sm:flex-shrink-0"
                   >
                     🧪 Test
                   </button>

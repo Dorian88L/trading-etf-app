@@ -9,6 +9,7 @@ class ETF(Base):
     __tablename__ = "etfs"
     
     isin = Column(String(12), primary_key=True)
+    symbol = Column(String(20), nullable=False)  # Symbole principal pour trading
     name = Column(String(255), nullable=False)
     sector = Column(String(100))
     currency = Column(String(3), default="EUR")
