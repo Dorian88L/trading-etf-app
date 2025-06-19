@@ -636,13 +636,13 @@ const ETFList: React.FC = () => {
         </div>
         <div className="bg-white p-4 rounded-lg shadow-sm border text-center">
           <div className="text-2xl font-bold text-blue-600">
-            {Math.round(filteredETFs.reduce((sum, etf) => sum + (etf.confidence_score || 1.0), 0) / (filteredETFs.length || 1) * 100)}%
+            {Math.round(filteredETFs.reduce((sum: number, etf: any) => sum + (etf.confidence_score || 1.0), 0) / (filteredETFs.length || 1) * 100)}%
           </div>
           <div className="text-sm text-gray-600">Qualité moy.</div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow-sm border text-center">
           <div className="text-2xl font-bold text-purple-600">
-            {filteredETFs.filter(etf => etf.is_real_data !== false).length}
+            {filteredETFs.filter((etf: RealETFData) => etf.is_real_data !== false).length}
           </div>
           <div className="text-sm text-gray-600">Données réelles</div>
         </div>

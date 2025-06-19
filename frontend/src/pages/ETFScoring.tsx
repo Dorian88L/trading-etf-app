@@ -211,30 +211,12 @@ const ETFScoring: React.FC = () => {
         const result = await response.json();
         setComparisonResults(result.data);
       } else {
-        // Fallback avec données mockées
-        const isins = comparisonISINs.split(',').map(s => s.trim());
-        const mockComparison = {
-          etfs: isins.map(isin => generateMockETFScores(1)[0]),
-          analysis: {
-            best_overall_score: isins[0],
-            lowest_risk: isins[1] || isins[0],
-            best_momentum: isins[0]
-          }
-        };
-        setComparisonResults(mockComparison);
+        console.error('Erreur lors de la comparaison des ETFs');
+        setComparisonResults(null);
       }
     } catch (error) {
-      console.log('Utilisation de données mockées pour la comparaison');
-      const isins = comparisonISINs.split(',').map(s => s.trim());
-      const mockComparison = {
-        etfs: isins.map(isin => generateMockETFScores(1)[0]),
-        analysis: {
-          best_overall_score: isins[0],
-          lowest_risk: isins[1] || isins[0],
-          best_momentum: isins[0]
-        }
-      };
-      setComparisonResults(mockComparison);
+      console.error('Erreur lors de la comparaison des ETFs:', error);
+      setComparisonResults(null);
     }
   };
 
