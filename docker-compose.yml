@@ -86,11 +86,66 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`localhost`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.backend.entrypoints=web"
+      # Router pour les APIs
+      - "traefik.http.routers.backend-api.rule=(Host(`localhost`) || Host(`api.investeclaire.fr`) || Host(`investeclaire.fr`)) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-api.entrypoints=web"
+      - "traefik.http.routers.backend-api.service=backend"
+      # Router pour la documentation
+      - "traefik.http.routers.backend-docs.rule=(Host(`localhost`) || Host(`api.investeclaire.fr`)) && (PathPrefix(`/docs`) || PathPrefix(`/redoc`) || PathPrefix(`/openapi.json`))"
+      - "traefik.http.routers.backend-docs.entrypoints=web"
+      - "traefik.http.routers.backend-docs.service=backend"
+      # Service backend
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
-      - "traefik.http.middlewares.backend-stripprefix.stripprefix.prefixes=/api"
-      - "traefik.http.routers.backend.middlewares=backend-stripprefix"
+
+  # Celery Worker for background tasks
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: celery-worker
+    command: celery -A app.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_etf_dev
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=development
+    env_file:
+      - .env.dev
+    volumes:
+      - ./backend:/app
+      - ./backend/logs:/app/logs
+    networks:
+      - trading-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Celery Beat for scheduled tasks
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: celery-beat
+    command: celery -A app.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_etf_dev
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=development
+    env_file:
+      - .env.dev
+    volumes:
+      - ./backend:/app
+      - ./backend/logs:/app/logs
+    networks:
+      - trading-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   # Frontend React
   frontend:
@@ -99,7 +154,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: frontend
     environment:
-      - REACT_APP_API_URL=http://localhost:8080/api
+      - REACT_APP_API_URL=http://localhost
       - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./frontend:/app
@@ -111,7 +166,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`localhost`)"
+      - "traefik.http.routers.frontend.rule=Host(`localhost`) || Host(`investeclaire.fr`) || Host(`www.investeclaire.fr`)"
       - "traefik.http.routers.frontend.entrypoints=web"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
 

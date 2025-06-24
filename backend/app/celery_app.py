@@ -6,7 +6,7 @@ celery_app = Celery(
     "trading_etf",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.services.tasks"]
+    include=["app.services.tasks", "app.services.simulation_tasks"]
 )
 
 # Configure Celery
@@ -44,5 +44,10 @@ celery_app.conf.beat_schedule = {
     "cleanup-expired-signals": {
         "task": "app.services.tasks.cleanup_expired_signals",
         "schedule": 86400,  # Daily
+    },
+    # Clean up old simulations hourly
+    "cleanup-old-simulations": {
+        "task": "app.services.simulation_tasks.cleanup_old_simulations",
+        "schedule": 3600,  # Hourly
     },
 }

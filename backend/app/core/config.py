@@ -25,7 +25,8 @@ class Settings(BaseSettings):
     ## Sources de données :
     
     * Yahoo Finance (principal)
-    * Financial Modeling Prep (fallback)
+    * TwelveData, EODHD, Finnhub (prioritaires)
+    * Alpha Vantage, FMP, Marketstack (fallback)
     * Cache intelligent pour performance optimale
     
     ## Authentification :
@@ -86,10 +87,24 @@ class Settings(BaseSettings):
         "https://api.investeclaire.fr"
     ]
     
+    # Allowed hosts for Host header validation
+    @property
+    def ALLOWED_HOSTS(self) -> Optional[list[str]]:
+        hosts_env = os.getenv("ALLOWED_HOSTS")
+        if hosts_env:
+            return [host.strip() for host in hosts_env.split(",")]
+        return None
+    
     # External APIs
     ALPHA_VANTAGE_API_KEY: Optional[str] = os.getenv("ALPHA_VANTAGE_API_KEY")
     YAHOO_FINANCE_API_KEY: Optional[str] = os.getenv("YAHOO_FINANCE_API_KEY")
     FINANCIAL_MODELING_PREP_API_KEY: Optional[str] = os.getenv("FINANCIAL_MODELING_PREP_API_KEY", "demo")
+    
+    # Alternative data sources
+    EODHD_API_KEY: Optional[str] = os.getenv("EODHD_API_KEY")
+    FINNHUB_API_KEY: Optional[str] = os.getenv("FINNHUB_API_KEY")
+    MARKETSTACK_API_KEY: Optional[str] = os.getenv("MARKETSTACK_API_KEY")
+    TWELVEDATA_API_KEY: Optional[str] = os.getenv("TWELVEDATA_API_KEY")
     
     # Push Notifications (VAPID)
     VAPID_PRIVATE_KEY: Optional[str] = os.getenv("VAPID_PRIVATE_KEY")

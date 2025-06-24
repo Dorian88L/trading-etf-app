@@ -9,6 +9,7 @@ import {
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import useNotifications from '../hooks/useNotifications';
+import { getApiUrl } from '../config/api';
 
 interface NotificationSetting {
   id: string;
@@ -46,7 +47,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ onClose }) => {
   const loadPreferences = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/notifications/preferences', {
+      const response = await fetch(getApiUrl('/api/v1/notifications/preferences'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -67,7 +68,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ onClose }) => {
     if (!preferences) return;
 
     try {
-      const response = await fetch('/api/v1/notifications/preferences', {
+      const response = await fetch(getApiUrl('/api/v1/notifications/preferences'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -34,13 +34,18 @@ const Dashboard: React.FC = () => {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [watchlistData, setWatchlistData] = useState<any[]>([]);
 
   // Charger les données réelles
   useEffect(() => {
     fetchRealData();
+    fetchWatchlistData();
     
     // Actualiser toutes les 30 secondes si en temps réel
-    const interval = realTimeData ? setInterval(fetchRealData, 30000) : null;
+    const interval = realTimeData ? setInterval(() => {
+      fetchRealData();
+      fetchWatchlistData();
+    }, 30000) : null;
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -74,6 +79,24 @@ const Dashboard: React.FC = () => {
       console.error('Erreur de récupération:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWatchlistData = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setWatchlistData(data || []);
+      }
+    } catch (error) {
+      console.error('Erreur chargement watchlist:', error);
     }
   };
 
@@ -168,13 +191,13 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header amélioré */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-              <SparklesIcon className="h-8 w-8 text-blue-600 mr-3" />
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center">
+              <SparklesIcon className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 mr-2 sm:mr-3" />
               Trading ETF Dashboard
             </h1>
             <p className="text-gray-600 mt-1">
@@ -183,7 +206,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
           <div className="flex items-center space-x-1">
             <div className={`w-3 h-3 rounded-full ${realTimeData ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
             <span className="text-sm text-gray-600">
@@ -318,6 +341,63 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Ma Watchlist */}
+      {watchlistData.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                <span className="text-purple-600">👁️</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Ma Watchlist</h3>
+                <p className="text-sm text-gray-600">{watchlistData.length} ETF{watchlistData.length > 1 ? 's' : ''} suivi{watchlistData.length > 1 ? 's' : ''}</p>
+              </div>
+            </div>
+            <a 
+              href="/etf-list" 
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              Voir tout →
+            </a>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {watchlistData.slice(0, 6).map((etf) => (
+              <div key={etf.id} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <h4 className="font-medium text-gray-900">{etf.symbol}</h4>
+                    <p className="text-xs text-gray-500 line-clamp-1">{etf.name}</p>
+                  </div>
+                  <span className={`text-sm font-medium ${
+                    etf.change_percent >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {etf.change_percent >= 0 ? '+' : ''}{etf.change_percent.toFixed(2)}%
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-lg font-semibold text-gray-900">
+                      {etf.current_price.toFixed(2)} {etf.currency}
+                    </div>
+                    <div className={`text-xs ${
+                      etf.change >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {etf.change >= 0 ? '+' : ''}{etf.change.toFixed(2)} {etf.currency}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {etf.sector}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Section d'alertes et notifications */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6">

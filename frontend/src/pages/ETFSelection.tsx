@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import ETFSelector from '../components/ETFSelector';
 import { PlusIcon, TrashIcon, EyeIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { getApiUrl } from '../config/api';
 
 interface UserWatchlist {
   id: string;
@@ -22,6 +23,23 @@ interface ETFData {
   confidence?: number;
 }
 
+interface ETFDetails {
+  isin: string;
+  symbol: string;
+  name: string;
+  sector: string;
+  region: string;
+  currency: string;
+  ter: number;
+  aum: number;
+  exchange: string;
+  description: string;
+  benchmark: string;
+  inception_date: string;
+  dividend_frequency: string;
+  replication_method: string;
+}
+
 const ETFSelection: React.FC = () => {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
@@ -32,10 +50,15 @@ const ETFSelection: React.FC = () => {
   const [showETFSelector, setShowETFSelector] = useState(false);
   const [newWatchlistName, setNewWatchlistName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [userWatchlistData, setUserWatchlistData] = useState<any[]>([]);
+  const [availableETFs, setAvailableETFs] = useState<any[]>([]);
+  const [etfDetails, setEtfDetails] = useState<{ [isin: string]: ETFDetails }>({});
+  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     if (user) {
-      loadUserWatchlists();
+      fetchUserWatchlist();
+      fetchAvailableETFs();
     }
   }, [user]);
 
@@ -48,54 +71,128 @@ const ETFSelection: React.FC = () => {
     }
   }, [selectedWatchlist, watchlists]);
 
-  const loadUserWatchlists = async () => {
+  const fetchUserWatchlist = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/user/watchlists', {
+      console.log('🔄 Chargement watchlist...');
+      console.log('Token:', localStorage.getItem('access_token') ? 'Présent' : 'Absent');
+      
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
         }
       });
       
+      console.log('📡 Réponse API:', response.status, response.statusText);
+      
       if (response.ok) {
         const data = await response.json();
-        setWatchlists(data);
+        console.log('📊 Données reçues:', data);
+        console.log('📋 Watchlist data:', data.data);
+        console.log('📈 Nombre d\'ETFs:', data.data?.length || 0);
         
-        // Sélectionner la première watchlist ou créer une par défaut
-        if (data.length > 0) {
-          setSelectedWatchlist(data[0].id);
-        } else {
-          createDefaultWatchlist();
+        setUserWatchlistData(data.data || []);
+        
+        // Récupérer les détails des ETFs
+        if (data.data && data.data.length > 0) {
+          await fetchETFDetails(data.data);
         }
+        
+        // Convertir en format ancien pour compatibilité
+        const watchlistCompat = [{
+          id: 'main',
+          name: 'Ma Watchlist',
+          etfSymbols: (data.data || []).map((item: any) => item.symbol),
+          createdAt: new Date().toISOString(),
+          isDefault: true
+        }];
+        setWatchlists(watchlistCompat);
+        setSelectedWatchlist('main');
+      } else {
+        const errorData = await response.text();
+        console.error('❌ Erreur API:', response.status, errorData);
+        setUserWatchlistData([]);
       }
     } catch (error) {
-      console.error('Erreur lors du chargement des watchlists:', error);
+      console.error('❌ Erreur chargement watchlist:', error);
+      setUserWatchlistData([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchETFDetails = async (watchlistData: any[]) => {
+    console.log('🔍 Récupération détails ETFs...');
+    const details: { [isin: string]: ETFDetails } = {};
+    
+    for (const etf of watchlistData) {
+      try {
+        // Essayer avec l'ISIN depuis les données watchlist
+        const isin = etf.isin || etf.etf_isin;
+        if (!isin) {
+          console.warn('⚠️ Pas d\'ISIN pour:', etf);
+          continue;
+        }
+        
+        console.log(`🔎 Récupération détails pour ISIN: ${isin}`);
+        const response = await fetch(getApiUrl(`/api/v1/real-market/etf-details/${isin}`), {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          details[isin] = data.data;
+          console.log(`✅ Détails récupérés pour ${isin}:`, data.data.name);
+        } else {
+          console.error(`❌ Erreur détails ${isin}:`, response.status);
+        }
+      } catch (error) {
+        console.error('❌ Erreur récupération détails ETF:', error);
+      }
+    }
+    
+    console.log('📋 Détails ETFs récupérés:', Object.keys(details).length);
+    setEtfDetails(details);
+  };
+
+  const fetchAvailableETFs = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/v1/real-market/real-etfs'), {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableETFs(data.data || []);
+      }
+    } catch (error) {
+      console.error('Erreur chargement ETFs:', error);
+    }
+  };
+
   const loadETFData = async (symbols: string[]) => {
     try {
-      const responses = await Promise.all(
-        symbols.map(symbol => 
-          fetch(`/api/v1/market/etf/${symbol}`)
-            .then(res => res.ok ? res.json() : null)
-        )
-      );
-
+      // Utiliser les données déjà chargées de la watchlist
       const newETFData: { [key: string]: ETFData } = {};
-      responses.forEach((data, index) => {
-        if (data) {
-          newETFData[symbols[index]] = {
-            symbol: data.symbol,
-            name: data.name,
-            price: data.price,
-            change: data.change,
-            changePercent: data.change_percent,
-            sector: data.sector,
-            signal: data.signal?.signal_type,
-            confidence: data.signal?.confidence
+      
+      userWatchlistData.forEach((etf) => {
+        if (symbols.includes(etf.symbol)) {
+          newETFData[etf.symbol] = {
+            symbol: etf.symbol,
+            name: etf.name,
+            price: etf.current_price,
+            change: etf.change,
+            changePercent: etf.change_percent,
+            sector: etf.sector,
+            signal: 'HOLD', // Valeur par défaut
+            confidence: 75 // Valeur par défaut
           };
         }
       });
@@ -106,112 +203,106 @@ const ETFSelection: React.FC = () => {
     }
   };
 
-  const createDefaultWatchlist = async () => {
-    const defaultWatchlist: UserWatchlist = {
-      id: 'default',
-      name: 'Ma Watchlist',
-      etfSymbols: ['IWDA.AS', 'CSPX.AS', 'VWCE.DE'],
-      createdAt: new Date().toISOString(),
-      isDefault: true
-    };
-
+  const addETFToWatchlist = async (etfSymbol: string) => {
     try {
-      const response = await fetch('/api/v1/user/watchlists', {
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(defaultWatchlist)
+        body: JSON.stringify({
+          etf_symbol: etfSymbol
+        })
       });
 
       if (response.ok) {
-        const savedWatchlist = await response.json();
-        setWatchlists([savedWatchlist]);
-        setSelectedWatchlist(savedWatchlist.id);
+        // Recharger la watchlist
+        await fetchUserWatchlist();
+      } else {
+        const error = await response.json();
+        console.error('Erreur ajout watchlist:', error.detail);
       }
     } catch (error) {
-      console.error('Erreur lors de la création de la watchlist par défaut:', error);
+      console.error('Erreur ajout watchlist:', error);
     }
   };
 
-  const createNewWatchlist = async () => {
-    if (!newWatchlistName.trim()) return;
-
-    const newWatchlist: Omit<UserWatchlist, 'id'> = {
-      name: newWatchlistName,
-      etfSymbols: [],
-      createdAt: new Date().toISOString(),
-      isDefault: false
-    };
-
+  const removeETFFromWatchlist = async (etfSymbol: string) => {
     try {
-      const response = await fetch('/api/v1/user/watchlists', {
-        method: 'POST',
+      const response = await fetch(getApiUrl(`/api/v1/watchlist/watchlist/${etfSymbol}`), {
+        method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(newWatchlist)
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.ok) {
-        const savedWatchlist = await response.json();
-        setWatchlists([...watchlists, savedWatchlist]);
-        setSelectedWatchlist(savedWatchlist.id);
-        setNewWatchlistName('');
+        // Recharger la watchlist
+        await fetchUserWatchlist();
+      } else {
+        const error = await response.json();
+        console.error('Erreur suppression watchlist:', error.detail);
       }
     } catch (error) {
-      console.error('Erreur lors de la création de la watchlist:', error);
+      console.error('Erreur suppression watchlist:', error);
     }
   };
 
-  const updateWatchlistETFs = async (etfSymbols: string[]) => {
-    if (!selectedWatchlist) return;
-
-    try {
-      const response = await fetch(`/api/v1/user/watchlists/${selectedWatchlist}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ etfSymbols })
-      });
-
-      if (response.ok) {
-        setWatchlists(watchlists.map(w => 
-          w.id === selectedWatchlist 
-            ? { ...w, etfSymbols } 
-            : w
-        ));
+  const addTestETFs = async () => {
+    const testETFs = [
+      'EQQQ', // IE0032077012 - Invesco NASDAQ-100
+      'VWCE', // IE00BK5BQT80 - Vanguard All-World
+      'VEUR'  // IE00BK5BQV03 - Vanguard Europe
+    ];
+    
+    console.log('🧪 Ajout des ETFs de test...');
+    
+    for (const symbol of testETFs) {
+      try {
+        await addETFToWatchlist(symbol);
+        console.log(`✅ ETF ${symbol} ajouté`);
+        // Petit délai entre les ajouts
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`❌ Erreur ajout ${symbol}:`, error);
       }
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour de la watchlist:', error);
     }
+    
+    // Recharger la watchlist après tous les ajouts
+    await fetchUserWatchlist();
   };
 
   const deleteWatchlist = async (watchlistId: string) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer tous les ETFs de cette watchlist ?')) {
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/v1/user/watchlists/${watchlistId}`, {
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+          'Content-Type': 'application/json'
         }
       });
 
       if (response.ok) {
-        const newWatchlists = watchlists.filter(w => w.id !== watchlistId);
-        setWatchlists(newWatchlists);
+        const result = await response.json();
+        console.log(result.message);
         
-        if (selectedWatchlist === watchlistId) {
-          setSelectedWatchlist(newWatchlists.length > 0 ? newWatchlists[0].id : null);
-        }
+        // Recharger la watchlist
+        await fetchUserWatchlist();
+      } else {
+        const error = await response.json();
+        console.error('Erreur suppression watchlist:', error.detail);
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression de la watchlist:', error);
+      console.error('Erreur suppression watchlist:', error);
     }
   };
+
 
   const getSignalBadge = (signal?: string, confidence?: number) => {
     if (!signal) return null;
@@ -247,13 +338,27 @@ const ETFSelection: React.FC = () => {
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Mes ETFs</h1>
-          <button
-            onClick={() => setShowETFSelector(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-          >
-            <PlusIcon className="w-4 h-4 mr-2" />
-            Ajouter des ETFs
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setShowETFSelector(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              Ajouter des ETFs
+            </button>
+            <button
+              onClick={() => setShowDebug(!showDebug)}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              🔍 Debug
+            </button>
+            <button
+              onClick={() => addTestETFs()}
+              className="inline-flex items-center px-3 py-2 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100"
+            >
+              🧪 Test ETFs
+            </button>
+          </div>
         </div>
 
         {/* Gestion des watchlists */}
@@ -290,29 +395,60 @@ const ETFSelection: React.FC = () => {
               value={newWatchlistName}
               onChange={(e) => setNewWatchlistName(e.target.value)}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              onKeyPress={(e) => e.key === 'Enter' && createNewWatchlist()}
+              onKeyPress={(e) => e.key === 'Enter' && console.log('Création désactivée')}
             />
             <button
-              onClick={createNewWatchlist}
-              disabled={!newWatchlistName.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 rounded-md"
+              onClick={() => console.log('Création désactivée')}
+              disabled={true}
+              className="px-4 py-2 text-sm font-medium text-white bg-gray-400 rounded-md"
             >
-              Créer
+              Créer (désactivé)
             </button>
           </div>
         </div>
+
+        {/* Section Debug */}
+        {showDebug && (
+          <div className="mt-6 p-4 bg-gray-100 rounded-lg">
+            <h3 className="text-lg font-semibold mb-4">🔍 Informations Debug</h3>
+            <div className="space-y-3 text-sm">
+              <div><strong>Utilisateur connecté:</strong> {user ? 'Oui' : 'Non'}</div>
+              <div><strong>Token présent:</strong> {localStorage.getItem('access_token') ? 'Oui' : 'Non'}</div>
+              <div><strong>Nombre ETFs watchlist:</strong> {userWatchlistData.length}</div>
+              <div><strong>Nombre détails ETFs:</strong> {Object.keys(etfDetails).length}</div>
+              <div><strong>Loading:</strong> {loading ? 'Oui' : 'Non'}</div>
+              
+              {userWatchlistData.length > 0 && (
+                <div>
+                  <strong>Données brutes watchlist:</strong>
+                  <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-40">
+                    {JSON.stringify(userWatchlistData, null, 2)}
+                  </pre>
+                </div>
+              )}
+              
+              {Object.keys(etfDetails).length > 0 && (
+                <div>
+                  <strong>Détails ETFs:</strong>
+                  <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto max-h-40">
+                    {JSON.stringify(etfDetails, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Liste des ETFs de la watchlist sélectionnée */}
-      {currentWatchlist && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {currentWatchlist.name} ({currentWatchlist.etfSymbols.length} ETFs)
-            </h2>
-          </div>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Ma Watchlist ({userWatchlistData.length} ETFs)
+          </h2>
+        </div>
 
-          {currentWatchlist.etfSymbols.length === 0 ? (
+        {userWatchlistData.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <ChartBarIcon className="w-12 h-12 mx-auto mb-4 text-gray-400" />
               <p className="mb-4">Aucun ETF dans cette watchlist</p>
@@ -346,35 +482,59 @@ const ETFSelection: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {currentWatchlist.etfSymbols.map((symbol) => {
-                    const data = etfData[symbol];
+                  {userWatchlistData.map((etf) => {
+                    const isin = etf.isin || etf.etf_isin;
+                    const details = etfDetails[isin];
+                    
                     return (
-                      <tr key={symbol} className="hover:bg-gray-50">
+                      <tr key={etf.symbol || etf.isin} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{symbol}</div>
-                            <div className="text-sm text-gray-500">{data?.name || 'Chargement...'}</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {details?.name || etf.name || etf.symbol || isin}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {details?.symbol || etf.symbol} • {details?.sector || etf.sector || 'N/A'}
+                            </div>
+                            {details?.ter && (
+                              <div className="text-xs text-gray-400">
+                                TER: {details.ter}% • {details.region}
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {data?.price ? `${data.price.toFixed(2)} €` : '-'}
+                          {etf.current_price ? 
+                            `${etf.current_price.toFixed(2)} ${etf.currency || details?.currency || 'EUR'}` : 
+                            'N/A'
+                          }
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {data?.changePercent !== undefined ? (
-                            <span className={data.changePercent >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              {data.changePercent >= 0 ? '+' : ''}{data.changePercent.toFixed(2)}%
+                          {etf.change_percent !== undefined ? (
+                            <span className={etf.change_percent >= 0 ? 'text-green-600' : 'text-red-600'}>
+                              {etf.change_percent >= 0 ? '+' : ''}{etf.change_percent.toFixed(2)}%
                             </span>
-                          ) : '-'}
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {getSignalBadge(data?.signal, data?.confidence)}
+                          {getSignalBadge('HOLD', 75)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <button
-                            onClick={() => window.open(`/etf/${symbol}`, '_blank')}
+                            onClick={() => window.open('/etf/' + (etf.symbol || isin), '_blank')}
                             className="text-blue-600 hover:text-blue-900 mr-3"
+                            title="Voir les détails"
                           >
                             <EyeIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => removeETFFromWatchlist(etf.symbol || isin)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Supprimer de la watchlist"
+                          >
+                            <TrashIcon className="w-4 h-4" />
                           </button>
                         </td>
                       </tr>
@@ -384,8 +544,7 @@ const ETFSelection: React.FC = () => {
               </table>
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       {/* Modal de sélection d'ETFs */}
       {showETFSelector && (
@@ -402,13 +561,17 @@ const ETFSelection: React.FC = () => {
             </div>
             
             <div className="max-h-[70vh] overflow-y-auto">
-              <ETFSelector
-                selectedETFs={currentWatchlist?.etfSymbols || []}
-                onSelectionChange={(symbols) => {
-                  updateWatchlistETFs(symbols);
-                }}
-                maxSelection={20}
-              />
+              <div className="p-4">
+                <p className="text-sm text-gray-600 mb-4">
+                  Utilisez la page "ETFs" pour rechercher et ajouter des ETFs à votre watchlist.
+                </p>
+                <a 
+                  href="/etfs" 
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Aller aux ETFs →
+                </a>
+              </div>
             </div>
 
             <div className="p-4 border-t border-gray-200 flex justify-end space-x-3">

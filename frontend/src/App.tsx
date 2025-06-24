@@ -7,6 +7,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import ETFList from './pages/ETFList';
 import ETFDetail from './pages/ETFDetail';
+import ETFSelection from './pages/ETFSelection';
 import ETFScoring from './pages/ETFScoring';
 import Portfolio from './pages/Portfolio';
 import Signals from './pages/Signals';
@@ -56,6 +57,7 @@ function AppRoutes() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="etfs" element={<ETFList />} />
           <Route path="etf/:symbol" element={<ETFDetail />} />
+          <Route path="etf-selection" element={<ETFSelection />} />
           <Route path="scoring" element={<ETFScoring />} />
           <Route path="portfolio" element={<Portfolio />} />
           <Route path="signals" element={<Signals />} />

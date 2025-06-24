@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon, MagnifyingGlassIcon, StarIcon } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
+import { getApiUrl } from '../config/api';
 
 interface ETF {
   isin: string;
@@ -56,14 +57,14 @@ const ETFSelector: React.FC<ETFSelectorProps> = ({
   const fetchETFs = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/market/etf-catalog');
+      const response = await fetch(getApiUrl('/api/v1/market/etf-catalog'));
       if (response.ok) {
         const data = await response.json();
         setEtfs(data);
         
         // Extraire les secteurs et régions uniques des données réelles
-        const uniqueSectors = [...new Set(data.map((etf: any) => etf.sector).filter(Boolean))];
-        const uniqueRegions = [...new Set(data.map((etf: any) => etf.region).filter(Boolean))];
+        const uniqueSectors = Array.from(new Set(data.map((etf: any) => etf.sector).filter(Boolean))) as string[];
+        const uniqueRegions = Array.from(new Set(data.map((etf: any) => etf.region).filter(Boolean))) as string[];
         
         setSectors(uniqueSectors);
         setRegions(uniqueRegions);

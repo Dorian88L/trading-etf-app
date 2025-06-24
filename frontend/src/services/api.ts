@@ -150,12 +150,12 @@ export const userAPI = {
     return response.data;
   },
   
-  addToWatchlist: async (etfIsin: string): Promise<void> => {
-    await api.post('/api/v1/user/watchlist', { etf_isin: etfIsin });
+  addToWatchlist: async (etfSymbol: string): Promise<void> => {
+    await api.post('/api/v1/watchlist/watchlist', { etf_symbol: etfSymbol });
   },
   
-  removeFromWatchlist: async (etfIsin: string): Promise<void> => {
-    await api.delete(`/api/v1/user/watchlist/${etfIsin}`);
+  removeFromWatchlist: async (etfSymbol: string): Promise<void> => {
+    await api.delete(`/api/v1/watchlist/watchlist/${etfSymbol}`);
   },
 };
 
@@ -182,24 +182,36 @@ export const marketAPI = {
     }
     
     try {
-      // Essayer d'abord l'endpoint avec authentification
-      const response = await api.get('/api/v1/real-market/real-etfs', { params: symbols ? { symbols } : {} });
+      // Utiliser la nouvelle API optimisée en premier
+      const response = await api.get('/api/v1/optimized-market/optimized-etfs', { 
+        params: { 
+          use_cache: useCache,
+          min_confidence: 0.0  // Accepter toutes les données
+        }
+      });
       
       // Mettre en cache pour 30 secondes
       cache.set(cacheKey, response.data, 30);
       
       return response.data;
     } catch (error: any) {
-      // Si échec d'authentification, utiliser l'endpoint public
-      if (error.response?.status === 401) {
-        console.log('🔄 Fallback vers l\'endpoint public etfs-preview');
-        const fallbackResponse = await api.get('/api/v1/real-market/public/etfs-preview');
-        
-        // Mettre en cache pour 30 secondes
-        cache.set(cacheKey, fallbackResponse.data, 30);
-        return fallbackResponse.data;
+      console.log('🔄 Fallback vers l\'API real-market');
+      
+      try {
+        // Fallback vers l'ancienne API
+        const response = await api.get('/api/v1/real-market/real-etfs', { params: symbols ? { symbols } : {} });
+        cache.set(cacheKey, response.data, 30);
+        return response.data;
+      } catch (fallbackError: any) {
+        // Si échec d'authentification, utiliser l'endpoint public
+        if (fallbackError.response?.status === 401) {
+          console.log('🔄 Fallback vers l\'endpoint public etfs-preview');
+          const fallbackResponse = await api.get('/api/v1/real-market/public/etfs-preview');
+          cache.set(cacheKey, fallbackResponse.data, 30);
+          return fallbackResponse.data;
+        }
+        throw fallbackError;
       }
-      throw error;
     }
   },
   
@@ -254,6 +266,32 @@ export const marketAPI = {
 
   getEnhancedIndices: async (): Promise<any> => {
     const response = await api.get('/api/v1/real-market/enhanced-indices');
+    return response.data;
+  },
+
+  // Nouvelles APIs optimisées
+  getOptimizedETFs: async (params?: {
+    use_cache?: boolean;
+    min_confidence?: number;
+  }): Promise<any> => {
+    const response = await api.get('/api/v1/optimized-market/optimized-etfs', { params });
+    return response.data;
+  },
+
+  getOptimizedETF: async (symbol: string, useCache: boolean = true): Promise<any> => {
+    const response = await api.get(`/api/v1/optimized-market/optimized-etf/${symbol}`, {
+      params: { use_cache: useCache }
+    });
+    return response.data;
+  },
+
+  getDataSourcesStatus: async (): Promise<any> => {
+    const response = await api.get('/api/v1/optimized-market/data-sources-status');
+    return response.data;
+  },
+
+  refreshETFCache: async (): Promise<any> => {
+    const response = await api.post('/api/v1/optimized-market/refresh-cache');
     return response.data;
   },
 };
@@ -320,22 +358,22 @@ export const signalsAPI = {
 
 export const portfolioAPI = {
   getPortfolios: async (): Promise<any> => {
-    const response = await api.get('/api/v1/portfolio');
+    const response = await api.get('/api/v1/portfolio/portfolios');
     return response.data;
   },
   
   getPortfolioPositions: async (portfolioId: string): Promise<any> => {
-    const response = await api.get(`/api/v1/portfolio/${portfolioId}/positions`);
+    const response = await api.get('/api/v1/portfolio/positions');
     return response.data;
   },
   
-  getPortfolioTransactions: async (portfolioId: string): Promise<any> => {
-    const response = await api.get(`/api/v1/portfolio/${portfolioId}/transactions`);
+  getPortfolioTransactions: async (portfolioId: string): Promise<any> => {   
+    const response = await api.get('/api/v1/portfolio/transactions');
     return response.data;
   },
   
   getPortfolioSummary: async (portfolioId: string): Promise<any> => {
-    const response = await api.get(`/api/v1/portfolio/${portfolioId}/summary`);
+    const response = await api.get('/api/v1/portfolio/performance');
     return response.data;
   },
   

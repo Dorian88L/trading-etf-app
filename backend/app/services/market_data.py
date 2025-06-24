@@ -105,12 +105,16 @@ ISIN_TO_SYMBOL = {
     "IE00B4L5Y983": "IWDA.AS",     # iShares Core MSCI World
     "LU0274211217": "XWRD.DE",     # Xtrackers MSCI World
     "IE00B4L5YC18": "CSPX.AS",     # iShares Core S&P 500
+    "IE00B5BMR087": "CSPX.L",      # iShares Core S&P 500 UCITS ETF USD Acc
     "FR0010315770": "PAEEM.PA",    # Lyxor MSCI Emerging Markets
     "IE00BKM4GZ66": "IMEU.AS",     # iShares Core MSCI Europe
     "LU0290358497": "XESX.DE",     # Xtrackers EURO STOXX 50
     "IE00B52MJD48": "CNDX.AS",     # iShares NASDAQ 100
     "LU0488316133": "XJPN.DE",     # Xtrackers MSCI Japan
     "IE00B6R52259": "ISAC.AS",     # iShares MSCI ACWI
+    "IE00BK5BQT80": "VWCE.AS",     # Vanguard FTSE All-World UCITS ETF
+    "DE0005933931": "DAX.DE",      # iShares Core DAX UCITS ETF
+    "IE00B52VJ196": "SX5E.DE",     # iShares Core EURO STOXX 50 UCITS ETF
 }
 
 

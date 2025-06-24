@@ -11,6 +11,7 @@ import {
   CogIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+import { getApiUrl } from '../../config/api';
 
 interface TradingSimulationConfig {
   name: string;
@@ -76,7 +77,7 @@ const TradingSimulation: React.FC = () => {
 
   const loadAvailableSectors = async () => {
     try {
-      const response = await fetch('/api/v1/advanced-backtesting/etf/sectors');
+      const response = await fetch(getApiUrl('/api/v1/advanced-backtesting/etf/sectors'));
       if (response.ok) {
         const data = await response.json();
         setAvailableSectors(data.sectors || []);
@@ -88,7 +89,7 @@ const TradingSimulation: React.FC = () => {
 
   const loadActiveSimulations = async () => {
     try {
-      const response = await fetch('/api/v1/advanced-backtesting/simulation/active', {
+      const response = await fetch(getApiUrl('/api/v1/advanced-backtesting/simulation/active'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
@@ -105,7 +106,7 @@ const TradingSimulation: React.FC = () => {
 
   const loadLeaderboard = async () => {
     try {
-      const response = await fetch('/api/v1/advanced-backtesting/simulation/leaderboard?timeframe=week&limit=5');
+      const response = await fetch(getApiUrl('/api/v1/advanced-backtesting/simulation/leaderboard?timeframe=week&limit=5'));
       if (response.ok) {
         const data = await response.json();
         setLeaderboard(data.leaderboard || []);
@@ -120,7 +121,7 @@ const TradingSimulation: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch('/api/v1/advanced-backtesting/simulation/start', {
+      const response = await fetch(getApiUrl('/api/v1/advanced-backtesting/simulation/start'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -152,7 +153,7 @@ const TradingSimulation: React.FC = () => {
 
   const pauseSimulation = async (simulationId: string) => {
     try {
-      const response = await fetch(`/api/v1/advanced-backtesting/simulation/${simulationId}/pause`, {
+      const response = await fetch(getApiUrl(`/api/v1/advanced-backtesting/simulation/${simulationId}/pause`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -170,7 +171,7 @@ const TradingSimulation: React.FC = () => {
 
   const resumeSimulation = async (simulationId: string) => {
     try {
-      const response = await fetch(`/api/v1/advanced-backtesting/simulation/${simulationId}/resume`, {
+      const response = await fetch(getApiUrl(`/api/v1/advanced-backtesting/simulation/${simulationId}/resume`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -188,7 +189,7 @@ const TradingSimulation: React.FC = () => {
 
   const stopSimulation = async (simulationId: string) => {
     try {
-      const response = await fetch(`/api/v1/advanced-backtesting/simulation/${simulationId}`, {
+      const response = await fetch(getApiUrl(`/api/v1/advanced-backtesting/simulation/${simulationId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

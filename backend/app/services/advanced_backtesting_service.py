@@ -12,9 +12,12 @@ import uuid
 import time
 import logging
 from dataclasses import dataclass
+from sqlalchemy.orm import Session
 
 from app.services.real_market_data import get_real_market_data_service, RealMarketDataService
 from app.services.technical_indicators import TechnicalAnalysisService
+from app.core.database import get_db
+from app.models.backtest import Backtest, BacktestComparison
 
 logger = logging.getLogger(__name__)
 
@@ -795,24 +798,142 @@ class AdvancedBacktestingService:
 
     async def save_backtest_result(self, result: Dict[str, Any], user_id: str):
         """
-        Sauvegarde le résultat en base de données (à implémenter)
+        Sauvegarde le résultat en base de données
         """
-        # TODO: Implémenter la sauvegarde en DB
-        logger.info(f"Sauvegarde du backtest {result['id']} pour l'utilisateur {user_id}")
+        try:
+            db = next(get_db())
+            
+            # Créer l'instance Backtest
+            backtest = Backtest(
+                id=result["id"],
+                user_id=user_id,
+                name=result["config"]["name"],
+                start_date=datetime.fromisoformat(result["config"]["start_date"]),
+                end_date=datetime.fromisoformat(result["config"]["end_date"]),
+                initial_capital=result["config"]["initial_capital"],
+                strategy_type=result["config"]["strategy_type"],
+                strategy_params=result["config"]["strategy_params"],
+                etf_symbols=result["config"]["etf_symbols"],
+                rebalance_frequency=result["config"]["rebalance_frequency"],
+                transaction_cost_pct=result["config"]["transaction_cost_pct"],
+                stop_loss_pct=result["config"].get("stop_loss_pct"),
+                take_profit_pct=result["config"].get("take_profit_pct"),
+                max_position_size_pct=result["config"]["max_position_size_pct"],
+                total_return_pct=result["total_return_pct"],
+                annualized_return_pct=result["annualized_return_pct"],
+                volatility_pct=result["volatility_pct"],
+                sharpe_ratio=result["sharpe_ratio"],
+                max_drawdown_pct=result["max_drawdown_pct"],
+                win_rate_pct=result["win_rate_pct"],
+                number_of_trades=result["number_of_trades"],
+                final_value=result["final_value"],
+                trades=result["trades"],
+                equity_curve=result["equity_curve"],
+                risk_metrics=result["risk_metrics"],
+                benchmark_comparison=result["benchmark_comparison"],
+                execution_time_seconds=result["execution_time_seconds"],
+                status="completed"
+            )
+            
+            db.add(backtest)
+            db.commit()
+            db.refresh(backtest)
+            
+            logger.info(f"✅ Backtest {result['id']} sauvegardé pour l'utilisateur {user_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur sauvegarde backtest {result['id']}: {e}")
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     async def get_user_backtests(self, user_id: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         """
-        Récupère les backtests de l'utilisateur (à implémenter)
+        Récupère les backtests de l'utilisateur depuis la base de données
         """
-        # TODO: Implémenter la récupération depuis la DB
-        return []
+        try:
+            db = next(get_db())
+            
+            # Récupérer les backtests avec pagination
+            backtests = db.query(Backtest)\
+                .filter(Backtest.user_id == user_id)\
+                .order_by(Backtest.created_at.desc())\
+                .offset(offset)\
+                .limit(limit)\
+                .all()
+            
+            results = []
+            for backtest in backtests:
+                result = {
+                    "id": str(backtest.id),
+                    "config": {
+                        "name": backtest.name,
+                        "start_date": backtest.start_date.isoformat(),
+                        "end_date": backtest.end_date.isoformat(),
+                        "initial_capital": backtest.initial_capital,
+                        "strategy_type": backtest.strategy_type,
+                        "strategy_params": backtest.strategy_params,
+                        "etf_symbols": backtest.etf_symbols,
+                        "rebalance_frequency": backtest.rebalance_frequency,
+                        "transaction_cost_pct": backtest.transaction_cost_pct,
+                        "stop_loss_pct": backtest.stop_loss_pct,
+                        "take_profit_pct": backtest.take_profit_pct,
+                        "max_position_size_pct": backtest.max_position_size_pct
+                    },
+                    "total_return_pct": backtest.total_return_pct,
+                    "annualized_return_pct": backtest.annualized_return_pct,
+                    "volatility_pct": backtest.volatility_pct,
+                    "sharpe_ratio": backtest.sharpe_ratio,
+                    "max_drawdown_pct": backtest.max_drawdown_pct,
+                    "win_rate_pct": backtest.win_rate_pct,
+                    "number_of_trades": backtest.number_of_trades,
+                    "final_value": backtest.final_value,
+                    "trades": backtest.trades,
+                    "equity_curve": backtest.equity_curve,
+                    "risk_metrics": backtest.risk_metrics,
+                    "benchmark_comparison": backtest.benchmark_comparison,
+                    "created_at": backtest.created_at,
+                    "execution_time_seconds": backtest.execution_time_seconds,
+                    "status": backtest.status
+                }
+                results.append(result)
+            
+            logger.info(f"📊 Récupéré {len(results)} backtests pour l'utilisateur {user_id}")
+            return results
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération backtests pour {user_id}: {e}")
+            return []
+        finally:
+            db.close()
 
     async def delete_backtest(self, backtest_id: str, user_id: str):
         """
-        Supprime un backtest (à implémenter)
+        Supprime un backtest de la base de données
         """
-        # TODO: Implémenter la suppression
-        logger.info(f"Suppression du backtest {backtest_id} pour l'utilisateur {user_id}")
+        try:
+            db = next(get_db())
+            
+            # Vérifier que le backtest appartient à l'utilisateur
+            backtest = db.query(Backtest)\
+                .filter(Backtest.id == backtest_id, Backtest.user_id == user_id)\
+                .first()
+            
+            if not backtest:
+                raise ValueError(f"Backtest {backtest_id} non trouvé ou non autorisé pour l'utilisateur {user_id}")
+            
+            db.delete(backtest)
+            db.commit()
+            
+            logger.info(f"🗑️ Backtest {backtest_id} supprimé pour l'utilisateur {user_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur suppression backtest {backtest_id}: {e}")
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
 
 # Singleton

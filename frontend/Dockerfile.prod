@@ -4,17 +4,19 @@ FROM node:18-alpine AS builder
 # Répertoire de travail
 WORKDIR /app
 
-# Copier package.json et package-lock.json
-COPY package*.json ./
+# Copier package.json, package-lock.json et .npmrc
+COPY package*.json .npmrc ./
 
-# Installer les dépendances
-RUN npm ci --only=production
+# Installer les dépendances avec optimisations
+RUN npm ci --only=production --silent --no-audit --no-fund
 
 # Copier le code source
 COPY . .
 
-# Build de l'application pour la production
-RUN npm run build
+# Build de l'application pour la production avec optimisations
+ENV GENERATE_SOURCEMAP=false
+ENV INLINE_RUNTIME_CHUNK=false
+RUN npm run build --silent
 
 # Stage de production avec Nginx
 FROM nginx:alpine

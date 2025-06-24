@@ -18,40 +18,14 @@ const RealTimeNotification: React.FC<RealTimeNotificationProps> = ({ marketData 
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
-    // Générer des notifications basées sur les données de marché
-    if (marketData.length > 0) {
-      const newNotifications: Notification[] = [];
-
-      marketData.forEach(etf => {
-        // Alerte pour les mouvements importants
-        if (Math.abs(etf.change_percent) > 3) {
-          newNotifications.push({
-            id: `${etf.symbol}-${Date.now()}`,
-            type: etf.change_percent > 0 ? 'success' : 'warning',
-            title: `Mouvement important: ${etf.symbol}`,
-            message: `${etf.name} a ${etf.change_percent > 0 ? 'augmenté' : 'chuté'} de ${Math.abs(etf.change_percent).toFixed(2)}%`,
-            timestamp: new Date(),
-            autoHide: true
-          });
-        }
-
-        // Alerte pour les volumes élevés
-        if (etf.volume > 100000) {
-          newNotifications.push({
-            id: `vol-${etf.symbol}-${Date.now()}`,
-            type: 'info',
-            title: `Volume élevé: ${etf.symbol}`,
-            message: `Volume de ${etf.volume.toLocaleString('fr-FR')} détecté`,
-            timestamp: new Date(),
-            autoHide: true
-          });
-        }
-      });
-
-      if (newNotifications.length > 0) {
-        setNotifications(prev => [...newNotifications, ...prev].slice(0, 5)); // Garder seulement les 5 dernières
-      }
-    }
+    // Notifications automatiques désactivées temporairement
+    // Les notifications seront générées uniquement par les vraies alertes utilisateur
+    
+    // TODO: Réactiver avec des vraies alertes configurées par l'utilisateur
+    // if (marketData.length > 0) {
+    //   const newNotifications: Notification[] = [];
+    //   // ... logique de notifications ...
+    // }
   }, [marketData]);
 
   useEffect(() => {

@@ -22,6 +22,7 @@ import WatchlistManager from './WatchlistManager';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'ETFs', href: '/etfs', icon: ChartBarIcon },
+  { name: 'Mes ETFs', href: '/etf-selection', icon: EyeIcon },
   { name: 'Scoring', href: '/scoring', icon: ArrowTrendingUpIcon },
   { name: 'Signals', href: '/signals', icon: ArrowTrendingUpIcon },
   { name: 'Portfolio', href: '/portfolio', icon: CurrencyDollarIcon },
@@ -130,10 +131,10 @@ const Layout: React.FC = () => {
               })}
             </nav>
           </div>
-          <div className="flex flex-shrink-0 p-4 space-y-3">
+          <div className="flex flex-shrink-0 flex-col">
             {/* User Info */}
             {user && (
-              <div className="flex items-center space-x-3 p-2 border-t border-gray-200">
+              <div className="flex items-center space-x-3 p-4 border-t border-gray-200">
                 <div className="flex-shrink-0">
                   <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
                     <span className="text-sm font-medium text-white">
@@ -150,7 +151,8 @@ const Layout: React.FC = () => {
               </div>
             )}
             
-            <div className="hidden lg:block space-y-2">
+            {/* Actions buttons */}
+            <div className="p-4 space-y-2">
               <button
                 onClick={() => setWatchlistOpen(true)}
                 className="w-full flex items-center justify-center px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
@@ -158,15 +160,19 @@ const Layout: React.FC = () => {
                 <EyeIcon className="h-5 w-5 mr-2" />
                 <span className="text-sm font-medium">Watchlist</span>
               </button>
-              <EmojiNotificationButton />
+              
+              <div className="w-full">
+                <EmojiNotificationButton />
+              </div>
+              
+              <button
+                onClick={handleLogout}
+                className="group flex w-full items-center justify-center px-3 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
+              >
+                <ArrowRightOnRectangleIcon className="mr-2 h-5 w-5 flex-shrink-0 text-gray-400 group-hover:text-gray-500" />
+                Logout
+              </button>
             </div>
-            <button
-              onClick={handleLogout}
-              className="group flex w-full items-center px-2 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900"
-            >
-              <ArrowRightOnRectangleIcon className="mr-3 h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500" />
-              Logout
-            </button>
           </div>
         </div>
       </div>
@@ -184,7 +190,16 @@ const Layout: React.FC = () => {
               <Bars3Icon className="h-6 w-6" />
             </button>
             <h1 className="text-lg font-semibold text-gray-900">TradingETF</h1>
-            <EmojiNotificationButton className="lg:hidden" />
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setWatchlistOpen(true)}
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors lg:hidden"
+                title="Watchlist"
+              >
+                <EyeIcon className="h-6 w-6" />
+              </button>
+              <EmojiNotificationButton className="lg:hidden" />
+            </div>
           </div>
         </div>
 
