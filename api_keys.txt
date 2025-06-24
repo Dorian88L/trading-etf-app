@@ -1,0 +1,14 @@
+# API Keys for Trading ETF Application
+# Extracted from .env.prod for version control
+
+# Alpha Vantage API Key
+ALPHA_VANTAGE_API_KEY=SPQI5P084D9AYKFM
+
+# Yahoo Finance API Key  
+YAHOO_FINANCE_API_KEY=OqU1WJFjCG2fMH3uHbKzY73XTpD4eLw6aUhmFP7b
+
+# Financial Modeling Prep API Key
+FINANCIAL_MODELING_PREP_API_KEY=LRsj26llICG7mkIeOiKUufL7jHDV7oqf
+
+# Note: These keys are for production environment
+# Make sure to keep them secure and rotate them regularly

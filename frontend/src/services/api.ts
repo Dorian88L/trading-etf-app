@@ -150,12 +150,12 @@ export const userAPI = {
     return response.data;
   },
   
-  addToWatchlist: async (etfIsin: string): Promise<void> => {
-    await api.post('/api/v1/user/watchlist', { etf_isin: etfIsin });
+  addToWatchlist: async (etfSymbol: string): Promise<void> => {
+    await api.post('/api/v1/watchlist/watchlist', { etf_symbol: etfSymbol });
   },
   
-  removeFromWatchlist: async (etfIsin: string): Promise<void> => {
-    await api.delete(`/api/v1/user/watchlist/${etfIsin}`);
+  removeFromWatchlist: async (etfSymbol: string): Promise<void> => {
+    await api.delete(`/api/v1/watchlist/watchlist/${etfSymbol}`);
   },
 };
 

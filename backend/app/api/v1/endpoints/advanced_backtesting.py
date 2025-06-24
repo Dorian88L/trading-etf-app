@@ -73,13 +73,14 @@ class TradingSimulationResult(BaseModel):
     current_value: float
     total_return_pct: float
     daily_returns: List[Dict[str, Any]]
-    active_positions: List[Dict[str, Any]]
+    active_positions: Dict[str, Any]
     completed_trades: List[Dict[str, Any]]
     risk_metrics: Dict[str, Any]
     next_rebalance: datetime
     status: str  # "running", "completed", "paused", "error"
     created_at: datetime
     last_updated: datetime
+    days_remaining: int
 
 @router.post("/backtest/run", response_model=BacktestResult)
 async def run_advanced_backtest(
@@ -185,7 +186,7 @@ async def start_trading_simulation(
         # Lancer la simulation en arrière-plan
         background_tasks.add_task(
             simulation_service.run_simulation_loop,
-            simulation.id
+            simulation["id"]
         )
         
         return simulation
@@ -359,14 +360,16 @@ async def get_available_strategies():
     }
 
 @router.get("/etf/sectors")
-async def get_etf_sectors():
+async def get_etf_sectors(db = Depends(get_db)):
     """
     Récupère la liste des secteurs d'ETF disponibles
     """
-    market_service = get_real_market_data_service()
+    from sqlalchemy import text
     
     try:
-        sectors = await market_service.get_available_sectors()
+        # Récupérer les secteurs distincts depuis la base de données
+        result = db.execute(text("SELECT DISTINCT sector FROM etfs WHERE sector IS NOT NULL AND is_active = true ORDER BY sector"))
+        sectors = [row[0] for row in result.fetchall()]
         return {"sectors": sectors}
     
     except Exception as e:

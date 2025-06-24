@@ -13,9 +13,13 @@ import time
 import logging
 from dataclasses import dataclass
 import json
+from sqlalchemy.orm import Session
 
 from app.services.real_market_data import get_real_market_data_service, RealMarketDataService
 from app.services.advanced_backtesting_service import AdvancedBacktestingService, Trade, Position
+from app.core.database import get_db
+from app.models.trading_simulation import TradingSimulation, SimulationTrade, SimulationStatus
+from app.services.simulation_tasks import start_trading_simulation_task, pause_trading_simulation_task, stop_trading_simulation_task
 
 logger = logging.getLogger(__name__)
 
@@ -40,40 +44,80 @@ class TradingSimulationService:
         
     async def create_simulation(self, config: Any, user_id: str) -> Dict[str, Any]:
         """
-        Crée une nouvelle simulation de trading
+        Crée une nouvelle simulation de trading et la sauvegarde en base de données
         """
-        simulation_id = str(uuid.uuid4())
-        
-        # Sélectionner les ETFs automatiquement selon les secteurs
-        etf_symbols = await self._select_etfs_for_simulation(config)
-        
-        simulation = {
-            "id": simulation_id,
-            "user_id": user_id,
-            "config": config.dict(),
-            "etf_symbols": etf_symbols,
-            "current_value": config.initial_capital,
-            "total_return_pct": 0.0,
-            "daily_returns": [],
-            "active_positions": {},
-            "completed_trades": [],
-            "cash": config.initial_capital,
-            "portfolio_history": [],
-            "risk_metrics": {},
-            "next_rebalance": datetime.now() + timedelta(hours=config.rebalance_frequency_hours),
-            "status": "running",
-            "created_at": datetime.now(),
-            "last_updated": datetime.now(),
-            "days_remaining": config.duration_days,
-            "target_end_date": datetime.now() + timedelta(days=config.duration_days)
-        }
-        
-        self.active_simulations[simulation_id] = simulation
-        
-        logger.info(f"Simulation créée: {simulation_id} pour utilisateur {user_id}")
-        logger.info(f"ETFs sélectionnés: {etf_symbols}")
-        
-        return simulation
+        try:
+            db = next(get_db())
+            
+            # Sélectionner les ETFs automatiquement selon les secteurs
+            etf_symbols = await self._select_etfs_for_simulation(config)
+            
+            # Créer l'instance TradingSimulation
+            simulation = TradingSimulation(
+                user_id=user_id,
+                name=config.name,
+                initial_capital=config.initial_capital,
+                duration_days=config.duration_days,
+                strategy_type=config.strategy_type,
+                risk_level=config.risk_level,
+                allowed_etf_sectors=config.allowed_etf_sectors,
+                rebalance_frequency_hours=config.rebalance_frequency_hours,
+                auto_stop_loss=config.auto_stop_loss,
+                auto_take_profit=config.auto_take_profit,
+                etf_symbols=etf_symbols,
+                status=SimulationStatus.PENDING,
+                current_value=config.initial_capital,
+                cash=config.initial_capital,
+                total_return_pct=0.0,
+                active_positions={},
+                next_rebalance=datetime.utcnow() + timedelta(hours=config.rebalance_frequency_hours),
+                target_end_date=datetime.utcnow() + timedelta(days=config.duration_days),
+                days_remaining=config.duration_days
+            )
+            
+            db.add(simulation)
+            db.commit()
+            db.refresh(simulation)
+            
+            simulation_dict = {
+                "id": str(simulation.id),
+                "user_id": str(simulation.user_id),
+                "config": {
+                    "name": simulation.name,
+                    "initial_capital": simulation.initial_capital,
+                    "duration_days": simulation.duration_days,
+                    "strategy_type": simulation.strategy_type,
+                    "risk_level": simulation.risk_level,
+                    "allowed_etf_sectors": simulation.allowed_etf_sectors,
+                    "rebalance_frequency_hours": simulation.rebalance_frequency_hours,
+                    "auto_stop_loss": simulation.auto_stop_loss,
+                    "auto_take_profit": simulation.auto_take_profit
+                },
+                "etf_symbols": simulation.etf_symbols,
+                "current_value": simulation.current_value,
+                "total_return_pct": simulation.total_return_pct,
+                "daily_returns": [],
+                "active_positions": simulation.active_positions,
+                "completed_trades": [],
+                "risk_metrics": simulation.risk_metrics or {},
+                "next_rebalance": simulation.next_rebalance.isoformat(),
+                "status": simulation.status.value,
+                "created_at": simulation.created_at.isoformat(),
+                "last_updated": simulation.updated_at.isoformat(),
+                "days_remaining": simulation.days_remaining
+            }
+            
+            logger.info(f"✅ Simulation créée: {simulation.id} pour utilisateur {user_id}")
+            logger.info(f"🎯 ETFs sélectionnés: {etf_symbols}")
+            
+            return simulation_dict
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur création simulation: {e}")
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     async def _select_etfs_for_simulation(self, config: Any) -> List[str]:
         """
@@ -150,41 +194,33 @@ class TradingSimulationService:
 
     async def run_simulation_loop(self, simulation_id: str):
         """
-        Lance la boucle principale de simulation
+        Lance la boucle principale de simulation via Celery
         """
-        logger.info(f"Démarrage de la boucle de simulation {simulation_id}")
+        logger.info(f"🚀 Démarrage de la simulation {simulation_id} via Celery")
         
         try:
-            while simulation_id in self.active_simulations:
-                simulation = self.active_simulations[simulation_id]
+            # Lancer la tâche Celery pour la simulation
+            task = start_trading_simulation_task.delay(simulation_id)
+            
+            # Mettre à jour la simulation avec l'ID de tâche
+            db = next(get_db())
+            try:
+                simulation = db.query(TradingSimulation).filter(TradingSimulation.id == simulation_id).first()
+                if simulation:
+                    simulation.celery_task_id = task.id
+                    simulation.status = SimulationStatus.RUNNING
+                    simulation.started_at = datetime.utcnow()
+                    db.commit()
+                    
+                logger.info(f"✅ Tâche Celery {task.id} lancée pour simulation {simulation_id}")
+                return {"task_id": task.id, "simulation_id": simulation_id, "status": "started"}
                 
-                if simulation["status"] != "running":
-                    break
+            finally:
+                db.close()
                 
-                # Vérifier si la simulation est terminée
-                if simulation["days_remaining"] <= 0:
-                    await self._complete_simulation(simulation_id)
-                    break
-                
-                # Vérifier s'il est temps de rééquilibrer
-                if datetime.now() >= simulation["next_rebalance"]:
-                    await self._rebalance_portfolio(simulation_id)
-                
-                # Mettre à jour les valeurs du portfolio
-                await self._update_portfolio_values(simulation_id)
-                
-                # Calculer les métriques de risque
-                await self._update_risk_metrics(simulation_id)
-                
-                # Attendre avant la prochaine itération (1 minute)
-                await asyncio.sleep(60)
-                
-        except asyncio.CancelledError:
-            logger.info(f"Simulation {simulation_id} annulée")
         except Exception as e:
-            logger.error(f"Erreur dans la simulation {simulation_id}: {e}")
-            if simulation_id in self.active_simulations:
-                self.active_simulations[simulation_id]["status"] = "error"
+            logger.error(f"❌ Erreur lancement simulation {simulation_id}: {e}")
+            raise
 
     async def _rebalance_portfolio(self, simulation_id: str):
         """
@@ -583,64 +619,207 @@ class TradingSimulationService:
 
     async def get_simulation(self, simulation_id: str, user_id: str) -> Optional[Dict[str, Any]]:
         """
-        Récupère une simulation spécifique
+        Récupère une simulation spécifique depuis la base de données
         """
-        if simulation_id in self.active_simulations:
-            simulation = self.active_simulations[simulation_id]
-            if simulation["user_id"] == user_id:
-                return simulation
-        return None
+        try:
+            db = next(get_db())
+            
+            simulation = db.query(TradingSimulation)\
+                .filter(TradingSimulation.id == simulation_id, TradingSimulation.user_id == user_id)\
+                .first()
+            
+            if not simulation:
+                return None
+            
+            # Récupérer les trades de la simulation
+            trades = db.query(SimulationTrade)\
+                .filter(SimulationTrade.simulation_id == simulation_id)\
+                .order_by(SimulationTrade.timestamp.desc())\
+                .limit(100)\
+                .all()
+            
+            trades_list = []
+            for trade in trades:
+                trades_list.append({
+                    "id": str(trade.id),
+                    "timestamp": trade.timestamp.isoformat(),
+                    "symbol": trade.symbol,
+                    "action": trade.action,
+                    "quantity": trade.quantity,
+                    "price": trade.price,
+                    "value": trade.value,
+                    "commission": trade.commission,
+                    "reason": trade.reason,
+                    "confidence": trade.confidence,
+                    "pnl": trade.pnl
+                })
+            
+            return {
+                "id": str(simulation.id),
+                "user_id": str(simulation.user_id),
+                "config": {
+                    "name": simulation.name,
+                    "initial_capital": simulation.initial_capital,
+                    "duration_days": simulation.duration_days,
+                    "strategy_type": simulation.strategy_type,
+                    "risk_level": simulation.risk_level,
+                    "allowed_etf_sectors": simulation.allowed_etf_sectors,
+                    "rebalance_frequency_hours": simulation.rebalance_frequency_hours,
+                    "auto_stop_loss": simulation.auto_stop_loss,
+                    "auto_take_profit": simulation.auto_take_profit
+                },
+                "etf_symbols": simulation.etf_symbols,
+                "current_value": simulation.current_value,
+                "total_return_pct": simulation.total_return_pct,
+                "active_positions": simulation.active_positions,
+                "completed_trades": trades_list,
+                "risk_metrics": simulation.risk_metrics or {},
+                "next_rebalance": simulation.next_rebalance.isoformat() if simulation.next_rebalance else None,
+                "status": simulation.status.value,
+                "created_at": simulation.created_at.isoformat(),
+                "last_updated": simulation.updated_at.isoformat(),
+                "days_remaining": simulation.days_remaining,
+                "celery_task_id": simulation.celery_task_id
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération simulation {simulation_id}: {e}")
+            return None
+        finally:
+            db.close()
 
     async def get_user_simulations(self, user_id: str, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Récupère toutes les simulations d'un utilisateur
+        Récupère toutes les simulations d'un utilisateur depuis la base de données
         """
-        user_simulations = [
-            sim for sim in self.active_simulations.values()
-            if sim["user_id"] == user_id
-        ]
-        
-        if status_filter:
-            user_simulations = [
-                sim for sim in user_simulations
-                if sim["status"] == status_filter
-            ]
-        
-        return user_simulations
+        try:
+            db = next(get_db())
+            
+            query = db.query(TradingSimulation).filter(TradingSimulation.user_id == user_id)
+            
+            if status_filter:
+                query = query.filter(TradingSimulation.status == status_filter)
+            
+            simulations = query.order_by(TradingSimulation.created_at.desc()).all()
+            
+            result = []
+            for simulation in simulations:
+                result.append({
+                    "id": str(simulation.id),
+                    "config": {
+                        "name": simulation.name,
+                        "initial_capital": simulation.initial_capital,
+                        "duration_days": simulation.duration_days,
+                        "strategy_type": simulation.strategy_type,
+                        "risk_level": simulation.risk_level,
+                        "rebalance_frequency_hours": simulation.rebalance_frequency_hours
+                    },
+                    "current_value": simulation.current_value,
+                    "total_return_pct": simulation.total_return_pct,
+                    "active_positions": simulation.active_positions,
+                    "completed_trades": [],  # Ne pas charger tous les trades ici pour la performance
+                    "risk_metrics": simulation.risk_metrics or {},
+                    "next_rebalance": simulation.next_rebalance.isoformat() if simulation.next_rebalance else None,
+                    "status": simulation.status.value,
+                    "created_at": simulation.created_at.isoformat(),
+                    "last_updated": simulation.updated_at.isoformat(),
+                    "days_remaining": simulation.days_remaining
+                })
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur récupération simulations pour {user_id}: {e}")
+            return []
+        finally:
+            db.close()
 
     async def pause_simulation(self, simulation_id: str, user_id: str):
         """
-        Met en pause une simulation
+        Met en pause une simulation via Celery
         """
-        if simulation_id in self.active_simulations:
-            simulation = self.active_simulations[simulation_id]
-            if simulation["user_id"] == user_id:
-                simulation["status"] = "paused"
-                simulation["last_updated"] = datetime.now()
+        try:
+            db = next(get_db())
+            
+            # Vérifier que la simulation appartient à l'utilisateur
+            simulation = db.query(TradingSimulation)\
+                .filter(TradingSimulation.id == simulation_id, TradingSimulation.user_id == user_id)\
+                .first()
+            
+            if not simulation:
+                raise ValueError(f"Simulation {simulation_id} non trouvée pour l'utilisateur {user_id}")
+            
+            # Lancer la tâche Celery pour la pause
+            pause_trading_simulation_task.delay(simulation_id)
+            
+            logger.info(f"⏸️ Demande de pause envoyée pour simulation {simulation_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur pause simulation {simulation_id}: {e}")
+            raise
+        finally:
+            db.close()
 
     async def resume_simulation(self, simulation_id: str, user_id: str):
         """
-        Reprend une simulation
+        Reprend une simulation en pause via Celery
         """
-        if simulation_id in self.active_simulations:
-            simulation = self.active_simulations[simulation_id]
-            if simulation["user_id"] == user_id and simulation["status"] == "paused":
-                simulation["status"] = "running"
-                simulation["last_updated"] = datetime.now()
+        try:
+            db = next(get_db())
+            
+            # Vérifier que la simulation appartient à l'utilisateur et est en pause
+            simulation = db.query(TradingSimulation)\
+                .filter(
+                    TradingSimulation.id == simulation_id, 
+                    TradingSimulation.user_id == user_id,
+                    TradingSimulation.status == SimulationStatus.PAUSED
+                )\
+                .first()
+            
+            if not simulation:
+                raise ValueError(f"Simulation {simulation_id} non trouvée ou non en pause pour l'utilisateur {user_id}")
+            
+            # Relancer la tâche Celery
+            task = start_trading_simulation_task.delay(simulation_id)
+            
+            # Mettre à jour avec le nouvel ID de tâche
+            simulation.celery_task_id = task.id
+            simulation.status = SimulationStatus.RUNNING
+            db.commit()
+            
+            logger.info(f"▶️ Simulation {simulation_id} reprise avec tâche {task.id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur reprise simulation {simulation_id}: {e}")
+            raise
+        finally:
+            db.close()
 
     async def stop_simulation(self, simulation_id: str, user_id: str):
         """
-        Arrête et supprime une simulation
+        Arrête une simulation via Celery
         """
-        if simulation_id in self.active_simulations:
-            simulation = self.active_simulations[simulation_id]
-            if simulation["user_id"] == user_id:
-                simulation["status"] = "stopped"
-                del self.active_simulations[simulation_id]
-                
-                if simulation_id in self.simulation_tasks:
-                    self.simulation_tasks[simulation_id].cancel()
-                    del self.simulation_tasks[simulation_id]
+        try:
+            db = next(get_db())
+            
+            # Vérifier que la simulation appartient à l'utilisateur
+            simulation = db.query(TradingSimulation)\
+                .filter(TradingSimulation.id == simulation_id, TradingSimulation.user_id == user_id)\
+                .first()
+            
+            if not simulation:
+                raise ValueError(f"Simulation {simulation_id} non trouvée pour l'utilisateur {user_id}")
+            
+            # Lancer la tâche Celery pour l'arrêt
+            stop_trading_simulation_task.delay(simulation_id)
+            
+            logger.info(f"🛑 Demande d'arrêt envoyée pour simulation {simulation_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur arrêt simulation {simulation_id}: {e}")
+            raise
+        finally:
+            db.close()
 
     async def get_leaderboard(self, timeframe: str = "week", limit: int = 10) -> List[Dict[str, Any]]:
         """

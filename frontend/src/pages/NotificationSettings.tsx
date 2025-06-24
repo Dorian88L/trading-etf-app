@@ -12,6 +12,7 @@ import {
   XCircleIcon
 } from '@heroicons/react/24/outline';
 import { BellIcon as BellIconSolid } from '@heroicons/react/24/solid';
+import { getApiUrl } from '../config/api';
 
 interface NotificationPreferences {
   signal_notifications: boolean;
@@ -72,7 +73,7 @@ const NotificationSettings: React.FC = () => {
   const loadPreferences = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/notifications/preferences', {
+      const response = await fetch(getApiUrl('/api/v1/notifications/preferences'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -91,7 +92,7 @@ const NotificationSettings: React.FC = () => {
 
   const loadStats = async () => {
     try {
-      const response = await fetch('/api/v1/notifications/stats', {
+      const response = await fetch(getApiUrl('/api/v1/notifications/stats'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -109,7 +110,7 @@ const NotificationSettings: React.FC = () => {
   const savePreferences = async () => {
     try {
       setSaving(true);
-      const response = await fetch('/api/v1/notifications/preferences', {
+      const response = await fetch(getApiUrl('/api/v1/notifications/preferences'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

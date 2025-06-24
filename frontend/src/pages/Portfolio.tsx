@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { portfolioAPI } from '../services/api';
+import { getApiUrl } from '../config/api';
 
 interface Position {
   id: string;
@@ -91,7 +92,7 @@ const Portfolio: React.FC = () => {
       
       // Try to get portfolios from the portfolio management system first
       try {
-        const response = await fetch('/api/v1/portfolio-management/portfolios', {
+        const response = await fetch(getApiUrl('/api/v1/portfolio-management/portfolios'), {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
             'Content-Type': 'application/json'
@@ -137,7 +138,7 @@ const Portfolio: React.FC = () => {
 
       // Try portfolio management API first
       try {
-        const detailsResponse = await fetch(`/api/v1/portfolio-management/portfolios/${portfolioId}`, {
+        const detailsResponse = await fetch(getApiUrl(`/api/v1/portfolio-management/portfolios/${portfolioId}`), {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
             'Content-Type': 'application/json'
@@ -181,7 +182,7 @@ const Portfolio: React.FC = () => {
             setPositions(transformedPositions);
             
             // Load transactions
-            const transactionsResponse = await fetch(`/api/v1/portfolio-management/portfolios/${portfolioId}/transactions?limit=100`, {
+            const transactionsResponse = await fetch(getApiUrl(`/api/v1/portfolio-management/portfolios/${portfolioId}/transactions?limit=100`), {
               headers: {
                 'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                 'Content-Type': 'application/json'
@@ -301,7 +302,7 @@ const Portfolio: React.FC = () => {
     
     try {
       // Try portfolio management API first
-      const response = await fetch(`/api/v1/portfolio-management/portfolios/${selectedPortfolio}/positions`, {
+      const response = await fetch(getApiUrl(`/api/v1/portfolio-management/portfolios/${selectedPortfolio}/positions`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

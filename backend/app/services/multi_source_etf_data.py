@@ -520,9 +520,60 @@ class MultiSourceETFDataService:
 
     async def get_etf_data(self, symbol: str) -> ETFDataPoint:
         """
-        Récupère les données d'un ETF en utilisant les sources dans l'ordre de priorité
+        Récupère les données d'un ETF en priorisant le scraping temps réel
         """
-        sources = [
+        # NOUVEAU: Prioriser le scraping pour les données temps réel
+        logger.info(f"Récupération données temps réel pour {symbol} - Scraping prioritaire")
+        
+        # 1. Scraping en premier (temps réel)
+        from app.services.etf_scraping_service import ETFScrapingService
+        scraping_service = ETFScrapingService()
+        
+        try:
+            # Convertir le symbole en ISIN si nécessaire
+            isin = None
+            for etf_isin, etf_data in self.european_etfs.items():
+                if symbol in etf_data.get('name', '') or symbol == etf_isin:
+                    isin = etf_data.get('isin', etf_isin)
+                    break
+            
+            if not isin:
+                # Chercher dans le mapping inverse
+                for mapped_isin, mapped_symbol in self.isin_to_best_symbol.items():
+                    if mapped_symbol == symbol:
+                        isin = mapped_isin
+                        break
+            
+            if isin:
+                scraped_data = await scraping_service.scrape_etf_data(isin)
+                if scraped_data and scraped_data.current_price > 0:
+                    etf_info = self.european_etfs.get(symbol, {})
+                    logger.info(f"[SCRAPING] Données temps réel pour {symbol}: {scraped_data.current_price} {scraped_data.currency}")
+                    
+                    return ETFDataPoint(
+                        symbol=symbol,
+                        isin=scraped_data.isin,
+                        name=scraped_data.name,
+                        current_price=scraped_data.current_price,
+                        change=scraped_data.change,
+                        change_percent=scraped_data.change_percent,
+                        volume=scraped_data.volume or 0,
+                        market_cap=scraped_data.market_cap,
+                        currency=scraped_data.currency,
+                        exchange=scraped_data.exchange,
+                        sector=scraped_data.sector or etf_info.get('sector', 'Unknown'),
+                        last_update=scraped_data.last_update,
+                        source="realtime_scraping",  # Source scraping temps réel
+                        confidence_score=scraped_data.confidence_score,
+                        data_quality=f'realtime_{scraped_data.source}',
+                        reliability_icon='🔄'  # Temps réel
+                    )
+        except Exception as e:
+            logger.warning(f"Erreur scraping temps réel pour {symbol}: {e}")
+        
+        # 2. Fallback vers APIs (si scraping échoue)
+        logger.info(f"Fallback vers APIs pour {symbol}")
+        api_sources = [
             self._get_yahoo_finance_data,
             self._get_twelvedata_data,
             self._get_eodhd_data,
@@ -532,49 +583,21 @@ class MultiSourceETFDataService:
             self._get_marketstack_data,
         ]
         
-        for source_func in sources:
+        for source_func in api_sources:
             try:
                 data = await source_func(symbol)
                 if data and data.current_price > 0:
-                    logger.info(f"Données obtenues pour {symbol} depuis {data.source.value}")
+                    # Marquer comme données API (moins récentes)
+                    data.data_quality = f'api_{data.source.value}'
+                    data.reliability_icon = '📊'  # API
+                    data.confidence_score = min(data.confidence_score, 0.85)  # Réduire la confiance
+                    
+                    logger.info(f"[API] Données obtenues pour {symbol} depuis {data.source.value}")
                     return data
             except Exception as e:
-                logger.warning(f"Erreur source {source_func.__name__} pour {symbol}: {e}")
+                logger.warning(f"Erreur source API {source_func.__name__} pour {symbol}: {e}")
                 continue
         
-        # Si aucune source API n'a fonctionné, utiliser le scraping en fallback
-        logger.warning(f"APIs indisponibles pour {symbol}, tentative de scraping")
-        
-        # Importer et utiliser le service de scraping
-        from app.services.etf_scraping_service import ETFScrapingService
-        scraping_service = ETFScrapingService()
-        
-        try:
-            scraped_data = await scraping_service.get_etf_data(symbol)
-            if scraped_data:
-                # Convertir ScrapedETFData en ETFDataPoint
-                etf_info = self.european_etfs.get(symbol, {})
-                return ETFDataPoint(
-                    symbol=symbol,
-                    isin=scraped_data.isin or etf_info.get('isin', ''),
-                    name=scraped_data.name,
-                    current_price=scraped_data.current_price,
-                    change=scraped_data.change,
-                    change_percent=scraped_data.change_percent,
-                    volume=scraped_data.volume or 0,
-                    market_cap=None,
-                    currency=scraped_data.currency,
-                    exchange=scraped_data.exchange,
-                    sector=etf_info.get('sector', 'Unknown'),
-                    last_update=scraped_data.last_update,
-                    source=DataSource.CACHE,  # Marquer comme scraping
-                    confidence_score=0.9,  # Haute confiance pour scraping
-                    data_quality='scraped_realtime',
-                    reliability_icon='🌐'
-                )
-        except Exception as e:
-            logger.error(f"Erreur scraping pour {symbol}: {e}")
-            
         logger.error(f"Toutes les sources échouées pour {symbol}")
         return None
 
@@ -592,28 +615,122 @@ class MultiSourceETFDataService:
 
     async def get_all_etf_data(self) -> List[ETFDataPoint]:
         """
-        Récupère toutes les données ETF disponibles en utilisant les meilleurs symboles par ISIN
+        Récupère toutes les données ETF disponibles en mode temps réel optimisé
         """
-        tasks = []
-        processed_isins = set()
+        logger.info(f"Début récupération batch temps réel pour {len(self.isin_to_best_symbol)} ETFs")
         
-        # Pour chaque ISIN, utiliser le meilleur symbole
-        for isin, best_symbol in self.isin_to_best_symbol.items():
-            if isin not in processed_isins:
-                tasks.append(self.get_etf_data(best_symbol))
-                processed_isins.add(isin)
+        # Utiliser le service de scraping pour un batch optimisé
+        from app.services.etf_scraping_service import ETFScrapingService
+        scraping_service = ETFScrapingService()
         
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Récupérer tous les ISINs uniques
+        unique_isins = list(self.isin_to_best_symbol.keys())
         
-        valid_results = []
-        for result in results:
-            if isinstance(result, ETFDataPoint):
-                valid_results.append(result)
-            elif isinstance(result, Exception):
-                logger.error(f"Erreur lors de la récupération: {result}")
+        try:
+            # Scraping batch pour tous les ISINs
+            scraped_results = await scraping_service.scrape_multiple_etfs(unique_isins)
+            
+            valid_results = []
+            scraped_isins = set()
+            
+            # Convertir les résultats de scraping
+            for scraped_data in scraped_results:
+                if scraped_data and scraped_data.current_price > 0:
+                    best_symbol = self.isin_to_best_symbol.get(scraped_data.isin, scraped_data.isin)
+                    etf_info = self.european_etfs.get(best_symbol, {})
+                    
+                    etf_data_point = ETFDataPoint(
+                        symbol=best_symbol,
+                        isin=scraped_data.isin,
+                        name=scraped_data.name,
+                        current_price=scraped_data.current_price,
+                        change=scraped_data.change,
+                        change_percent=scraped_data.change_percent,
+                        volume=scraped_data.volume or 0,
+                        market_cap=scraped_data.market_cap,
+                        currency=scraped_data.currency,
+                        exchange=scraped_data.exchange,
+                        sector=scraped_data.sector or etf_info.get('sector', 'Unknown'),
+                        last_update=scraped_data.last_update,
+                        source="batch_realtime_scraping",
+                        confidence_score=scraped_data.confidence_score,
+                        data_quality=f'realtime_batch_{scraped_data.source}',
+                        reliability_icon='🔄'
+                    )
+                    
+                    valid_results.append(etf_data_point)
+                    scraped_isins.add(scraped_data.isin)
+            
+            # Pour les ISINs qui n'étaient pas disponibles via scraping, utiliser les APIs
+            failed_isins = set(unique_isins) - scraped_isins
+            if failed_isins:
+                logger.info(f"Fallback APIs pour {len(failed_isins)} ETFs non disponibles via scraping")
+                
+                api_tasks = []
+                for isin in failed_isins:
+                    best_symbol = self.isin_to_best_symbol.get(isin)
+                    if best_symbol:
+                        api_tasks.append(self._get_etf_data_via_apis(best_symbol))
+                
+                if api_tasks:
+                    api_results = await asyncio.gather(*api_tasks, return_exceptions=True)
+                    
+                    for result in api_results:
+                        if isinstance(result, ETFDataPoint):
+                            # Marquer comme données API
+                            result.data_quality = f'api_fallback_{result.source}'
+                            result.reliability_icon = '📊'
+                            result.confidence_score = min(result.confidence_score, 0.8)
+                            valid_results.append(result)
+            
+            logger.info(f"Récupération batch terminée: {len(valid_results)} ETFs (Scraping: {len(scraped_results)}, APIs: {len(valid_results) - len(scraped_results)})")
+            return valid_results
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du scraping batch: {e}")
+            
+            # Fallback complet vers les APIs
+            logger.info("Fallback complet vers les APIs")
+            tasks = []
+            for isin, best_symbol in self.isin_to_best_symbol.items():
+                tasks.append(self._get_etf_data_via_apis(best_symbol))
+            
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            valid_results = []
+            for result in results:
+                if isinstance(result, ETFDataPoint):
+                    result.data_quality = f'api_emergency_{result.source}'
+                    result.reliability_icon = '⚠️'
+                    result.confidence_score = min(result.confidence_score, 0.7)
+                    valid_results.append(result)
+                elif isinstance(result, Exception):
+                    logger.error(f"Erreur lors de la récupération: {result}")
+            
+            return valid_results
+    
+    async def _get_etf_data_via_apis(self, symbol: str) -> Optional[ETFDataPoint]:
+        """Méthode auxiliaire pour récupérer via APIs uniquement"""
+        api_sources = [
+            self._get_yahoo_finance_data,
+            self._get_twelvedata_data,
+            self._get_eodhd_data,
+            self._get_finnhub_data,
+            self._get_alpha_vantage_data,
+            self._get_fmp_data,
+            self._get_marketstack_data,
+        ]
         
-        logger.info(f"Récupération terminée: {len(valid_results)} ETFs uniques sur {len(self.isin_to_best_symbol)} ISINs")
-        return valid_results
+        for source_func in api_sources:
+            try:
+                data = await source_func(symbol)
+                if data and data.current_price > 0:
+                    return data
+            except Exception as e:
+                logger.warning(f"Erreur source API {source_func.__name__} pour {symbol}: {e}")
+                continue
+        
+        return None
 
     async def close(self):
         """Ferme les sessions"""

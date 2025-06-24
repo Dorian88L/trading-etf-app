@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import ETFSelector from '../components/ETFSelector';
 import { PlusIcon, TrashIcon, EyeIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { getApiUrl } from '../config/api';
 
 interface UserWatchlist {
   id: string;
@@ -76,7 +77,7 @@ const ETFSelection: React.FC = () => {
       console.log('🔄 Chargement watchlist...');
       console.log('Token:', localStorage.getItem('access_token') ? 'Présent' : 'Absent');
       
-      const response = await fetch('/api/v1/real-market/watchlist', {
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
@@ -135,7 +136,7 @@ const ETFSelection: React.FC = () => {
         }
         
         console.log(`🔎 Récupération détails pour ISIN: ${isin}`);
-        const response = await fetch(`/api/v1/real-market/etf-details/${isin}`, {
+        const response = await fetch(getApiUrl(`/api/v1/real-market/etf-details/${isin}`), {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
             'Content-Type': 'application/json'
@@ -160,7 +161,7 @@ const ETFSelection: React.FC = () => {
 
   const fetchAvailableETFs = async () => {
     try {
-      const response = await fetch('/api/v1/real-market/real-etfs', {
+      const response = await fetch(getApiUrl('/api/v1/real-market/real-etfs'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
@@ -204,7 +205,7 @@ const ETFSelection: React.FC = () => {
 
   const addETFToWatchlist = async (etfSymbol: string) => {
     try {
-      const response = await fetch('/api/v1/real-market/watchlist', {
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -229,7 +230,7 @@ const ETFSelection: React.FC = () => {
 
   const removeETFFromWatchlist = async (etfSymbol: string) => {
     try {
-      const response = await fetch(`/api/v1/real-market/watchlist/${etfSymbol}`, {
+      const response = await fetch(getApiUrl(`/api/v1/watchlist/watchlist/${etfSymbol}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -279,7 +280,7 @@ const ETFSelection: React.FC = () => {
     }
 
     try {
-      const response = await fetch('/api/v1/real-market/watchlist', {
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

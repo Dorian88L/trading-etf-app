@@ -98,7 +98,7 @@ const Signals: React.FC = () => {
           
           // Try advanced signals API
           try {
-            const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.ADVANCED_SIGNALS)}`, {
+            const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.ADVANCED_SIGNALS), {
               headers: {
                 'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                 'Content-Type': 'application/json'
@@ -175,7 +175,7 @@ const Signals: React.FC = () => {
 
   const loadSignalStatistics = async () => {
     try {
-      const response = await fetch('/api/v1/advanced-signals/signals/statistics', {
+      const response = await fetch(getApiUrl('/api/v1/advanced-signals/signals/statistics'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'

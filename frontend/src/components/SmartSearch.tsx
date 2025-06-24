@@ -110,7 +110,7 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ onClose, className = '' }) =>
 
   const searchETFs = async (query: string): Promise<SearchResult[]> => {
     try {
-      const response = await fetch('/api/v1/real-market/real-etfs', {
+      const response = await fetch(getApiUrl('/api/v1/real-market/real-etfs'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
@@ -148,7 +148,7 @@ const SmartSearch: React.FC<SmartSearchProps> = ({ onClose, className = '' }) =>
 
   const searchSignals = async (query: string): Promise<SearchResult[]> => {
     try {
-      const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.ADVANCED_SIGNALS)}`, {
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.ADVANCED_SIGNALS), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'

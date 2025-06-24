@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDownIcon, MagnifyingGlassIcon, StarIcon } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
+import { getApiUrl } from '../config/api';
 
 interface ETF {
   isin: string;
@@ -56,7 +57,7 @@ const ETFSelector: React.FC<ETFSelectorProps> = ({
   const fetchETFs = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/market/etf-catalog');
+      const response = await fetch(getApiUrl('/api/v1/market/etf-catalog'));
       if (response.ok) {
         const data = await response.json();
         setEtfs(data);

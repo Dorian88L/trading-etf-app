@@ -7,6 +7,7 @@ import {
   BanknotesIcon,
   ScaleIcon
 } from '@heroicons/react/24/outline';
+import { getApiUrl } from '../config/api';
 
 interface Position {
   etf_isin: string;
@@ -57,7 +58,7 @@ const RiskManagement: React.FC<RiskManagementProps> = ({
   useEffect(() => {
     // const fetchRiskLimits = async () => {
     //   try {
-    //     const response = await fetch('/api/v1/portfolio/risk-limits');
+    //     const response = await fetch(getApiUrl('/api/v1/portfolio/risk-limits');
     //     if (response.ok) {
     //       const data = await response.json();
     //       setRiskLimits(data);

@@ -84,7 +84,7 @@ const Dashboard: React.FC = () => {
 
   const fetchWatchlistData = async () => {
     try {
-      const response = await fetch('/api/v1/real-market/watchlist', {
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
@@ -93,7 +93,7 @@ const Dashboard: React.FC = () => {
       
       if (response.ok) {
         const data = await response.json();
-        setWatchlistData(data.data || []);
+        setWatchlistData(data || []);
       }
     } catch (error) {
       console.error('Erreur chargement watchlist:', error);

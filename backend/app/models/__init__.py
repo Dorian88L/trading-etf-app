@@ -6,6 +6,14 @@ from .signal import Signal
 from .portfolio import Portfolio, Position, Transaction
 from .alert import Alert
 from .watchlist import Watchlist
+from .backtest import Backtest, BacktestComparison
+from .trading_simulation import (
+    TradingSimulation, 
+    SimulationTrade, 
+    SimulationPerformanceSnapshot, 
+    SimulationLeaderboard,
+    SimulationStatus
+)
 
 __all__ = [
     "User",
@@ -22,5 +30,12 @@ __all__ = [
     "Position", 
     "Transaction",
     "Alert",
-    "Watchlist"
+    "Watchlist",
+    "Backtest",
+    "BacktestComparison",
+    "TradingSimulation",
+    "SimulationTrade",
+    "SimulationPerformanceSnapshot",
+    "SimulationLeaderboard",
+    "SimulationStatus"
 ]

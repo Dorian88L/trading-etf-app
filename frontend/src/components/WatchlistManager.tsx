@@ -12,22 +12,30 @@ import {
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon, EyeIcon as EyeSolidIcon } from '@heroicons/react/24/solid';
+import { getApiUrl } from '../config/api';
 
 interface WatchlistItem {
   id: string;
   symbol: string;
+  isin: string;
   name: string;
   current_price: number;
   change: number;
   change_percent: number;
-  volume: number;
+  volume?: number;
   sector: string;
   currency: string;
-  addedAt: string;
-  isAlertActive: boolean;
+  exchange: string;
+  added_at: string;
+  market_cap?: number;
+  confidence_score?: number;
+  is_realtime?: boolean;
+  source?: string;
+  // Frontend-only properties
+  isAlertActive?: boolean;
   alertPrice?: number;
   notes?: string;
-  tags: string[];
+  tags?: string[];
 }
 
 interface WatchlistManagerProps {
@@ -62,7 +70,7 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
   const fetchAvailableETFs = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/real-market/real-etfs', {
+      const response = await fetch(getApiUrl('/api/v1/etf/real-etfs'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
@@ -82,7 +90,7 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
 
   const fetchUserWatchlist = async () => {
     try {
-      const response = await fetch('/api/v1/real-market/watchlist', {
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
@@ -90,11 +98,16 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
       });
       
       if (response.ok) {
-        const data = await response.json();
-        // Convertir les données backend en format attendu
-        const watchlistData = data.data || [];
+        const watchlistData = await response.json();
+        // Le backend retourne directement un array, pas un objet avec .data
+        const formattedData = watchlistData.map((item: any) => ({
+          ...item,
+          addedAt: item.added_at,
+          isAlertActive: false, // Frontend-only property
+          tags: [] // Frontend-only property
+        }));
         setWatchlists({
-          'favorites': watchlistData,
+          'favorites': formattedData,
           'monitoring': [],
           'opportunities': []
         });
@@ -122,7 +135,7 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
 
   const addToWatchlist = async (etf: any, watchlistName: string) => {
     try {
-      const response = await fetch('/api/v1/real-market/watchlist', {
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -152,7 +165,7 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
       const etfToRemove = currentList.find(item => item.id === itemId);
       
       if (etfToRemove) {
-        const response = await fetch(`/api/v1/real-market/watchlist/${etfToRemove.symbol}`, {
+        const response = await fetch(getApiUrl(`/api/v1/watchlist/watchlist/${etfToRemove.symbol}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -429,6 +442,28 @@ const WatchlistManager: React.FC<WatchlistManagerProps> = ({ isOpen, onClose }) 
                                 )}
                                 {item.change_percent >= 0 ? '+' : ''}{item.change_percent.toFixed(2)}%
                               </span>
+                              {item.is_realtime && (
+                                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                  Live
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Exchange et source info */}
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="text-xs text-gray-500">{item.exchange}</span>
+                              {item.source && (
+                                <span className="text-xs text-gray-400">• {item.source}</span>
+                              )}
+                              {item.confidence_score && (
+                                <span className={`text-xs px-2 py-1 rounded ${
+                                  item.confidence_score > 0.8 ? 'bg-green-100 text-green-800' : 
+                                  item.confidence_score > 0.6 ? 'bg-yellow-100 text-yellow-800' : 
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {Math.round(item.confidence_score * 100)}%
+                                </span>
+                              )}
                             </div>
 
                             {/* Tags */}

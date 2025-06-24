@@ -10,6 +10,7 @@ import {
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import WalkForwardAnalysis from './WalkForwardAnalysis';
+import { getApiUrl } from '../../config/api';
 
 interface BacktestConfig {
   name: string;
@@ -59,29 +60,37 @@ const AdvancedBacktestingEngine: React.FC<AdvancedBacktestingEngineProps> = ({ o
   const loadAvailableData = async () => {
     try {
       // Charger les stratégies disponibles
-      const strategiesRes = await fetch('/api/v1/advanced-backtesting/strategies/available');
+      const strategiesRes = await fetch(getApiUrl('/api/v1/advanced-backtesting/strategies/available'));
       if (strategiesRes.ok) {
         const strategiesData = await strategiesRes.json();
         setAvailableStrategies(strategiesData.strategies || []);
       }
 
       // Charger les secteurs ETF
-      const sectorsRes = await fetch('/api/v1/advanced-backtesting/etf/sectors');
+      const sectorsRes = await fetch(getApiUrl('/api/v1/advanced-backtesting/etf/sectors'));
       if (sectorsRes.ok) {
         const sectorsData = await sectorsRes.json();
         setEtfSectors(sectorsData.sectors || []);
       }
 
-      // Charger les ETFs disponibles
-      const etfsRes = await fetch('/api/v1/real-market/real-etfs', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (etfsRes.ok) {
-        const etfsData = await etfsRes.json();
+      // Charger les ETFs disponibles en utilisant l'API service avec fallback
+      try {
+        const etfsData = await import('../../services/api').then(api => api.marketAPI.getRealETFs());
         setAvailableETFs(etfsData.data || []);
+      } catch (error) {
+        console.warn('Erreur chargement ETFs avec API service, tentative directe...', error);
+        
+        // Fallback avec fetch direct
+        const etfsRes = await fetch(getApiUrl('/api/v1/real-market/real-etfs'), {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (etfsRes.ok) {
+          const etfsData = await etfsRes.json();
+          setAvailableETFs(etfsData.data || []);
+        }
       }
     } catch (error) {
       console.error('Erreur chargement données:', error);
@@ -100,7 +109,7 @@ const AdvancedBacktestingEngine: React.FC<AdvancedBacktestingEngineProps> = ({ o
     setResults(null);
 
     try {
-      const response = await fetch('/api/v1/advanced-backtesting/backtest/run', {
+      const response = await fetch(getApiUrl('/api/v1/advanced-backtesting/backtest/run'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

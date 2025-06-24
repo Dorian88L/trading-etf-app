@@ -6,11 +6,13 @@ import LoadingState from '../components/LoadingState';
 import DataQualityIndicator from '../components/DataQualityIndicator';
 import DataSourcesStatus from '../components/DataSourcesStatus';
 import { useApiCall } from '../hooks/useApiCall';
+import { getApiUrl } from '../config/api';
 
 interface RealETFData {
   symbol: string;
   isin: string;
   name: string;
+  description?: string;
   current_price: number;
   change: number;
   change_percent: number;
@@ -25,6 +27,25 @@ interface RealETFData {
   is_real_data?: boolean;
   data_quality?: string;
   reliability_icon?: string;
+  
+  // Nouvelles données complètes
+  geography?: string;
+  investment_theme?: string;
+  dividend_yield?: number;
+  pe_ratio?: number;
+  beta?: number;
+  expense_ratio?: number;
+  
+  // Données techniques
+  day_high?: number;
+  day_low?: number;
+  week_52_high?: number;
+  week_52_low?: number;
+  
+  // Métadonnées de qualité
+  data_source_url?: string;
+  is_realtime?: boolean;
+  data_freshness_minutes?: number;
 }
 
 const ETFList: React.FC = () => {
@@ -72,6 +93,10 @@ const ETFList: React.FC = () => {
   const [showDataSourcesStatus, setShowDataSourcesStatus] = useState(false);
   const [minConfidence, setMinConfidence] = useState(0.0);
   const [showOnlyRealData, setShowOnlyRealData] = useState(false);
+  const [geographyFilter, setGeographyFilter] = useState('');
+  const [themeFilter, setThemeFilter] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [dataSourceFilter, setDataSourceFilter] = useState('');
 
   useEffect(() => {
     fetchETFs();
@@ -81,7 +106,7 @@ const ETFList: React.FC = () => {
 
   const fetchUserWatchlist = async () => {
     try {
-      const response = await fetch('/api/v1/real-market/watchlist', {
+      const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
@@ -90,9 +115,9 @@ const ETFList: React.FC = () => {
       
       if (response.ok) {
         const data = await response.json();
-        setUserWatchlist(data.data || []);
+        setUserWatchlist(data || []);
         // Extraire les symboles pour l'interface
-        const symbols = (data.data || []).map((item: any) => item.symbol);
+        const symbols = (data || []).map((item: any) => item.symbol);
         setWatchlist(symbols);
       }
     } catch (error) {
@@ -172,7 +197,7 @@ const ETFList: React.FC = () => {
         setWatchlist(prev => prev.filter(s => s !== symbol));
         
         // Supprimer de la watchlist
-        const response = await fetch(`/api/v1/real-market/watchlist/${symbol}`, {
+        const response = await fetch(getApiUrl(`/api/v1/watchlist/watchlist/${symbol}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -189,7 +214,7 @@ const ETFList: React.FC = () => {
         setWatchlist(prev => [...prev, symbol]);
         
         // Ajouter à la watchlist
-        const response = await fetch('/api/v1/real-market/watchlist', {
+        const response = await fetch(getApiUrl('/api/v1/watchlist/watchlist'), {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

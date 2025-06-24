@@ -108,7 +108,7 @@ const BacktestingEngine: React.FC<BacktestingEngineProps> = ({ onResultsChange }
       else period = '2y';
       
       // Try to get real market data
-      const response = await fetch(`${getApiUrl(API_CONFIG.ENDPOINTS.HISTORICAL)}/${symbol}?period=${period}`, {
+      const response = await fetch(getApiUrl(`${API_CONFIG.ENDPOINTS.HISTORICAL}/${symbol}?period=${period}`), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'

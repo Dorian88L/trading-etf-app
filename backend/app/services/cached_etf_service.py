@@ -27,7 +27,17 @@ class CachedETFService:
         
     def _is_data_fresh(self, last_update: datetime) -> bool:
         """Vérifie si les données sont encore fraîches"""
-        return (datetime.now() - last_update).total_seconds() < (self.cache_duration_minutes * 60)
+        from datetime import timezone
+        
+        # Assurer que les deux datetimes ont la même timezone
+        if last_update.tzinfo is None:
+            current_time = datetime.now()
+        else:
+            current_time = datetime.now(timezone.utc)
+            if last_update.tzinfo != timezone.utc:
+                last_update = last_update.replace(tzinfo=timezone.utc)
+        
+        return (current_time - last_update).total_seconds() < (self.cache_duration_minutes * 60)
     
     async def get_cached_etf_data(self, symbol: str, db: Session) -> Optional[ETFDataPoint]:
         """Récupère les données ETF depuis le cache ou les sources externes"""
