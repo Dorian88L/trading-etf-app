@@ -12,13 +12,23 @@ from enum import Enum
 
 
 class SimulationStatus(Enum):
-    """Statuts possibles d'une simulation"""
+    """Statuts possibles d'une simulation (correspondant à l'enum en base)"""
     PENDING = "pending"
     RUNNING = "running"
     PAUSED = "paused"
     COMPLETED = "completed"
     STOPPED = "stopped"
     ERROR = "error"
+    
+    def __str__(self):
+        return self.value
+
+
+class SimulationStrategy(Enum):
+    """Stratégies de trading disponibles"""
+    TECHNICAL = "technical"
+    MOMENTUM = "momentum" 
+    MEAN_REVERSION = "mean_reversion"
     
     def __str__(self):
         return self.value
@@ -31,38 +41,32 @@ class TradingSimulation(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     
-    # Configuration de la simulation
+    # Configuration de la simulation (correspondant à la table)
     name = Column(String(255), nullable=False)
-    initial_capital = Column(Float, nullable=False)
+    initial_capital = Column(Float, nullable=False)  # real en base
     duration_days = Column(Integer, nullable=False)
-    strategy_type = Column(String(50), nullable=False)
-    risk_level = Column(String(20))  # conservative, moderate, aggressive
-    allowed_etf_sectors = Column(JSONB)  # Secteurs d'ETF autorisés
+    strategy_type = Column(String(50), nullable=False)  # character varying(50)
+    risk_level = Column(String(20))  # character varying(20)
+    allowed_etf_sectors = Column(JSONB)
     rebalance_frequency_hours = Column(Integer)
     auto_stop_loss = Column(Boolean, default=True)
     auto_take_profit = Column(Boolean, default=True)
+    etf_symbols = Column(JSONB)  # ETFs de la simulation
     
-    # ETFs sélectionnés automatiquement
-    etf_symbols = Column(JSONB)
-    
-    # État actuel de la simulation
+    # État actuel de la simulation (correspondant à la table)
     status = Column(SQLEnum(SimulationStatus, values_callable=lambda obj: [e.value for e in obj]), default=SimulationStatus.PENDING, index=True)
-    current_value = Column(Float)
-    cash = Column(Float)
-    total_return_pct = Column(Float)
+    current_value = Column(Float)  # real en base
+    cash = Column(Float)  # real en base
+    total_return_pct = Column(Float)  # real en base
+    daily_returns = Column(JSONB)
+    active_positions = Column(JSONB)
+    completed_trades = Column(JSONB)
+    risk_metrics = Column(JSONB)
     
-    # Données de performance
-    daily_returns = Column(JSONB)  # Historique des retours quotidiens
-    active_positions = Column(JSONB)  # Positions actuellement détenues
-    completed_trades = Column(JSONB)  # Historique des trades terminés
-    risk_metrics = Column(JSONB)  # Métriques de risque temps réel
-    
-    # Planification
-    next_rebalance = Column(DateTime)
-    target_end_date = Column(DateTime)
+    # Planification et résultats finaux
+    next_rebalance = Column(DateTime)  # timestamp with time zone
+    target_end_date = Column(DateTime)  # timestamp with time zone
     days_remaining = Column(Integer)
-    
-    # Résultats finaux (quand completed)
     final_metrics = Column(JSONB)
     benchmark_comparison = Column(JSONB)
     
@@ -74,11 +78,11 @@ class TradingSimulation(Base):
     error_message = Column(Text)
     error_count = Column(Integer, default=0)
     
-    # Timestamps
+    # Timestamps (correspondant à la table)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    started_at = Column(DateTime)
-    completed_at = Column(DateTime)
+    started_at = Column(DateTime)  # timestamp with time zone
+    completed_at = Column(DateTime)  # timestamp with time zone (nom différent de ended_at)
     
     # Relationships
     user = relationship("User", back_populates="trading_simulations")
@@ -93,23 +97,22 @@ class SimulationTrade(Base):
     simulation_id = Column(UUID(as_uuid=True), ForeignKey("trading_simulations.id"), nullable=False, index=True)
     
     # Détails du trade
-    timestamp = Column(DateTime, nullable=False, index=True)
-    symbol = Column(String(50), nullable=False)
-    action = Column(String(10), nullable=False)  # BUY or SELL
+    etf_symbol = Column(String(50), nullable=False)
+    etf_isin = Column(String(12))
+    trade_type = Column(String(10), nullable=False)  # BUY or SELL
     quantity = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
-    value = Column(Float, nullable=False)
-    commission = Column(Float, default=0)
+    total_amount = Column(Float, nullable=False)
+    fees = Column(Float, default=0)
     
     # Contexte du trade
     reason = Column(Text)  # Raison du signal de trading
-    confidence = Column(Float)  # Confiance du signal (0-100)
-    signal_type = Column(String(50))  # Type de signal technique
+    executed_at = Column(DateTime, nullable=False, index=True)
     
-    # Résultats (pour les ventes)
-    pnl = Column(Float)  # Profit/Loss réalisé
-    pnl_pct = Column(Float)  # Pourcentage de gain/perte
-    holding_period_hours = Column(Integer)  # Durée de détention
+    # État du portefeuille avant/après
+    portfolio_value_before = Column(Float)
+    portfolio_value_after = Column(Float)
+    profit_loss = Column(Float)  # P&L réalisé
     
     # Relationships
     simulation = relationship("TradingSimulation", back_populates="simulation_trades")

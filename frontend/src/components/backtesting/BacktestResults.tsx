@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
 
+// Fonctions de sécurité pour éviter les erreurs toFixed()
+const safeNumber = (value: number | undefined | null, defaultValue: number = 0): number => {
+  return (value !== undefined && value !== null && !isNaN(value)) ? value : defaultValue;
+};
+
+const safeToFixed = (value: number | undefined | null, decimals: number = 2): string => {
+  return safeNumber(value).toFixed(decimals);
+};
+
 interface Trade {
   date: string;
   symbol: string;
@@ -60,8 +69,8 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results, initialCapit
     return value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
   };
 
-  const formatPercentage = (value: number) => {
-    return `${(value * 100).toFixed(2)}%`;
+  const formatPercentage = (value: number | undefined | null) => {
+    return `${(safeNumber(value) * 100).toFixed(2)}%`;
   };
 
   const calculateMonthlyReturns = () => {
@@ -210,7 +219,7 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results, initialCapit
               
               <div className="bg-purple-50 p-4 rounded-lg text-center">
                 <div className="text-2xl font-bold text-purple-600">
-                  {results.sharpeRatio.toFixed(2)}
+                  {safeToFixed(results.sharpeRatio, 2)}
                 </div>
                 <div className="text-sm text-purple-800">Ratio de Sharpe</div>
               </div>
@@ -269,7 +278,7 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results, initialCapit
               
               <div className="text-center p-3 bg-white border rounded-lg">
                 <div className="text-lg font-semibold">
-                  {(results.numberOfTrades / (Object.keys(monthlyReturns).length || 1)).toFixed(1)}
+                  {safeToFixed(results.numberOfTrades / (Object.keys(monthlyReturns).length || 1), 1)}
                 </div>
                 <div className="text-sm text-gray-600">Trades/mois</div>
               </div>
@@ -411,7 +420,7 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results, initialCapit
                 
                 <div className="bg-indigo-50 p-4 rounded-lg text-center">
                   <div className="text-lg font-bold text-indigo-600">
-                    {riskMetrics.sortinoRatio.toFixed(2)}
+                    {safeToFixed(riskMetrics.sortinoRatio, 2)}
                   </div>
                   <div className="text-sm text-indigo-800">Ratio de Sortino</div>
                 </div>
@@ -454,7 +463,7 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results, initialCapit
                 </div>
                 <div className="flex justify-between">
                   <span>Ratio rendement/risque:</span>
-                  <span className="font-medium">{(results.annualizedReturn / results.volatility).toFixed(2)}</span>
+                  <span className="font-medium">{safeToFixed(safeNumber(results.annualizedReturn) / safeNumber(results.volatility), 2)}</span>
                 </div>
                 {benchmarkComparison && (
                   <div className="flex justify-between border-t pt-2 mt-2">

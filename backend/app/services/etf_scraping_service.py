@@ -126,8 +126,8 @@ class ETFScrapingService:
     
     async def get_session(self, rotate_ua=True):
         """Récupère une session HTTP avec rotation des User Agents"""
-        if not self.session or rotate_ua:
-            if self.session:
+        if not self.session or self.session.closed or rotate_ua:
+            if self.session and not self.session.closed:
                 await self.session.close()
             
             timeout = aiohttp.ClientTimeout(total=self.timeout)
@@ -162,6 +162,20 @@ class ETFScrapingService:
                 connector=connector
             )
         return self.session
+    
+    async def close_session(self):
+        """Ferme proprement la session HTTP"""
+        if self.session and not self.session.closed:
+            await self.session.close()
+            self.session = None
+    
+    async def __aenter__(self):
+        """Support pour async context manager"""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Ferme la session automatiquement à la sortie du contexte"""
+        await self.close_session()
     
     async def scrape_investing_com(self, isin: str) -> Optional[ScrapedETFData]:
         """Scrape les données depuis Investing.com (source prioritaire)"""

@@ -5,7 +5,7 @@ from app.api.v1.endpoints import (
     etf_scoring, trading_algorithms, realtime_market, backtesting, 
     websocket, advanced_backtesting, historical_data, optimized_etf_data,
     portfolio_management, user_etf_preferences, watchlist, etf_data_sources,
-    simulation_monitoring
+    simulation_monitoring, trading_simulation
 )
 
 api_router = APIRouter()
@@ -34,3 +34,4 @@ api_router.include_router(user_etf_preferences.router, prefix="/user-etf-prefere
 api_router.include_router(watchlist.router, prefix="/watchlist", tags=["watchlist"])
 api_router.include_router(etf_data_sources.router, prefix="/etf-data-sources", tags=["etf-data-sources"])
 api_router.include_router(simulation_monitoring.router, prefix="/simulation-monitoring", tags=["simulation-monitoring"])
+api_router.include_router(trading_simulation.router, prefix="/simulations", tags=["trading-simulation"])

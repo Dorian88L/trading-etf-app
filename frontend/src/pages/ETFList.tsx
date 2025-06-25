@@ -129,9 +129,10 @@ const ETFList: React.FC = () => {
     if (!etfs) return [];
     
     return etfs.filter((etf: RealETFData) => {
-      const matchesSearch = etf.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           etf.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           etf.isin.toLowerCase().includes(searchTerm.toLowerCase());
+      if (!etf) return false;
+      const matchesSearch = (etf.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (etf.symbol || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (etf.isin || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesSector = !sectorFilter || etf.sector === sectorFilter;
       const matchesCurrency = !currencyFilter || etf.currency === currencyFilter;
       const matchesExchange = !exchangeFilter || etf.exchange === exchangeFilter;

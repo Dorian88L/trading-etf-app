@@ -100,9 +100,14 @@ class CachedETFService:
     def _convert_cached_to_datapoint(self, etf: ETF, market_data: MarketData) -> ETFDataPoint:
         """Convertit les données en cache en ETFDataPoint"""
         
-        # Calculer la variation
-        change = float(market_data.close_price - market_data.open_price)
-        change_percent = (change / float(market_data.open_price)) * 100 if market_data.open_price > 0 else 0
+        # Calculer la variation de manière sûre
+        if market_data.open_price is not None and market_data.close_price is not None:
+            change = float(market_data.close_price - market_data.open_price)
+            change_percent = (change / float(market_data.open_price)) * 100 if market_data.open_price > 0 else 0
+        else:
+            # Utiliser change_absolute et change_percent si disponibles
+            change = float(market_data.change_absolute) if market_data.change_absolute is not None else 0.0
+            change_percent = float(market_data.change_percent) if market_data.change_percent is not None else 0.0
         
         return ETFDataPoint(
             symbol=etf.symbol if hasattr(etf, 'symbol') else etf.isin,
@@ -124,7 +129,7 @@ class CachedETFService:
         )
     
     def _save_to_cache(self, data: ETFDataPoint, db: Session):
-        """Sauvegarde les données en cache dans MarketData"""
+        """Sauvegarde les données en cache dans MarketData avec UPSERT"""
         try:
             # Chercher l'ETF par ISIN
             etf = db.query(ETF).filter(ETF.isin == data.isin).first()
@@ -132,21 +137,49 @@ class CachedETFService:
                 logger.warning(f"ETF {data.isin} non trouvé pour sauvegarde cache")
                 return
             
-            # Créer un nouvel enregistrement MarketData
-            market_data = MarketData(
-                time=data.last_update,
-                etf_isin=data.isin,
-                open_price=data.current_price - data.change,  # Prix d'ouverture estimé
-                high_price=data.current_price,  # Pour simplifier
-                low_price=data.current_price,   # Pour simplifier  
-                close_price=data.current_price,
-                volume=data.volume,
-                nav=data.current_price  # Net Asset Value = prix actuel
-            )
+            # Vérifier si des données existent déjà pour ce timestamp
+            existing = db.query(MarketData).filter(
+                and_(
+                    MarketData.etf_isin == data.isin,
+                    MarketData.time == data.last_update
+                )
+            ).first()
             
-            db.add(market_data)
+            if existing:
+                # Mettre à jour les données existantes
+                existing.open_price = data.current_price - data.change if data.change != 0 else existing.open_price
+                existing.high_price = max(existing.high_price or 0, data.current_price)
+                existing.low_price = min(existing.low_price or float('inf'), data.current_price)
+                existing.close_price = data.current_price
+                existing.volume = data.volume
+                existing.nav = data.current_price
+                existing.change_absolute = data.change
+                existing.change_percent = data.change_percent
+                existing.data_source = data.source
+                existing.confidence_score = data.confidence_score
+                existing.is_realtime = True
+                logger.debug(f"Données mises à jour en cache pour {data.symbol}")
+            else:
+                # Créer un nouvel enregistrement MarketData
+                market_data = MarketData(
+                    time=data.last_update,
+                    etf_isin=data.isin,
+                    open_price=data.current_price - data.change if data.change != 0 else data.current_price,
+                    high_price=data.current_price,
+                    low_price=data.current_price,
+                    close_price=data.current_price,
+                    volume=data.volume,
+                    nav=data.current_price,
+                    change_absolute=data.change,
+                    change_percent=data.change_percent,
+                    data_source=data.source,
+                    confidence_score=data.confidence_score,
+                    is_realtime=True
+                )
+                db.add(market_data)
+                logger.debug(f"Nouvelles données sauvegardées en cache pour {data.symbol}")
+            
             db.commit()
-            logger.info(f"Données sauvegardées en cache pour {data.symbol}")
             
         except Exception as e:
             logger.error(f"Erreur sauvegarde cache pour {data.symbol}: {e}")

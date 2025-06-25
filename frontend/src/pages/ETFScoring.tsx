@@ -12,6 +12,12 @@ interface ETFScore {
   confidence: number;
   rank?: number;
   percentile?: number;
+  symbol?: string;
+  name?: string;
+  current_price?: number;
+  currency?: string;
+  sector?: string;
+  change_percent?: number;
 }
 
 interface SectorAnalysis {
@@ -315,7 +321,8 @@ const ETFScoring: React.FC = () => {
                       <div className="flex items-center space-x-4">
                         <div className="text-2xl font-bold text-gray-400">#{etf.rank}</div>
                         <div>
-                          <h4 className="font-semibold text-gray-900">{etf.etf_isin}</h4>
+                          <h4 className="font-semibold text-gray-900">{etf.name || etf.symbol || etf.etf_isin}</h4>
+                          <p className="text-sm text-gray-600">{etf.symbol || etf.etf_isin} • {etf.etf_isin}</p>
                           <div className="flex items-center space-x-2 mt-1">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${getRatingColor(etf.rating)}`}>
                               {etf.rating}
@@ -404,7 +411,12 @@ const ETFScoring: React.FC = () => {
                         <div className="pt-3 border-t border-gray-200">
                           <div className="text-sm text-gray-600 mb-1">Meilleur ETF:</div>
                           <div className="flex justify-between items-center">
-                            <span className="font-medium">{data.top_etf.etf_isin}</span>
+                            <div>
+                              <span className="font-medium">{data.top_etf.name || data.top_etf.symbol || data.top_etf.etf_isin}</span>
+                              {(data.top_etf.name || data.top_etf.symbol) && (
+                                <div className="text-xs text-gray-500">{data.top_etf.symbol || data.top_etf.etf_isin} • {data.top_etf.etf_isin}</div>
+                              )}
+                            </div>
                             <span className={`px-2 py-1 rounded text-xs font-medium ${getRatingColor(data.top_etf.rating)}`}>
                               {data.top_etf.rating}
                             </span>
@@ -504,7 +516,8 @@ const ETFScoring: React.FC = () => {
                     <div key={etf.etf_isin} className="bg-white border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-semibold text-gray-900">{etf.etf_isin}</h4>
+                          <h4 className="font-semibold text-gray-900">{etf.name || etf.symbol || etf.etf_isin}</h4>
+                          <p className="text-sm text-gray-600">{etf.symbol || etf.etf_isin} • {etf.etf_isin}</p>
                           <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getRatingColor(etf.rating)} mt-1`}>
                             {etf.rating}
                           </span>
@@ -567,7 +580,8 @@ const ETFScoring: React.FC = () => {
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     {comparisonResults.etfs?.map((etf: ETFScore) => (
                       <div key={etf.etf_isin} className="bg-white border rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-900 text-center mb-4">{etf.etf_isin}</h4>
+                        <h4 className="font-semibold text-gray-900 text-center mb-2">{etf.name || etf.symbol || etf.etf_isin}</h4>
+                        <p className="text-sm text-gray-600 text-center mb-4">{etf.symbol || etf.etf_isin} • {etf.etf_isin}</p>
                         
                         <div className="space-y-3">
                           <div className="text-center">

@@ -89,7 +89,7 @@ const TradingSimulation: React.FC = () => {
 
   const loadActiveSimulations = async () => {
     try {
-      const response = await fetch(getApiUrl('/api/v1/advanced-backtesting/simulation/active'), {
+      const response = await fetch(getApiUrl('/api/v1/simulations/'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           'Content-Type': 'application/json'
@@ -106,7 +106,7 @@ const TradingSimulation: React.FC = () => {
 
   const loadLeaderboard = async () => {
     try {
-      const response = await fetch(getApiUrl('/api/v1/advanced-backtesting/simulation/leaderboard?timeframe=week&limit=5'));
+      const response = await fetch(getApiUrl('/api/v1/simulations/leaderboard?timeframe=week&limit=5'));
       if (response.ok) {
         const data = await response.json();
         setLeaderboard(data.leaderboard || []);
@@ -121,7 +121,7 @@ const TradingSimulation: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch(getApiUrl('/api/v1/advanced-backtesting/simulation/start'), {
+      const response = await fetch(getApiUrl('/api/v1/simulations/'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,

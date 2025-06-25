@@ -72,15 +72,15 @@ class TradingSimulationResult(BaseModel):
     config: TradingSimulationConfig
     current_value: float
     total_return_pct: float
-    daily_returns: List[Dict[str, Any]]
+    daily_returns: Optional[List[Dict[str, Any]]] = None
     active_positions: Dict[str, Any]
     completed_trades: List[Dict[str, Any]]
     risk_metrics: Dict[str, Any]
-    next_rebalance: datetime
+    next_rebalance: Optional[datetime] = None
     status: str  # "running", "completed", "paused", "error"
     created_at: datetime
-    last_updated: datetime
-    days_remaining: int
+    last_updated: Optional[datetime] = None
+    days_remaining: Optional[int] = None
 
 @router.post("/backtest/run", response_model=BacktestResult)
 async def run_advanced_backtest(

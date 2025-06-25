@@ -4,6 +4,15 @@ import AdvancedBacktestingEngine from '../components/backtesting/AdvancedBacktes
 import BacktestResults from '../components/backtesting/BacktestResults';
 import TradingSimulation from '../components/trading/TradingSimulation';
 
+// Fonctions de sécurité pour éviter les erreurs toFixed()
+const safeNumber = (value: number | undefined | null, defaultValue: number = 0): number => {
+  return (value !== undefined && value !== null && !isNaN(value)) ? value : defaultValue;
+};
+
+const safeToFixed = (value: number | undefined | null, decimals: number = 2): string => {
+  return safeNumber(value).toFixed(decimals);
+};
+
 interface BacktestResult {
   totalReturn: number;
   annualizedReturn: number;
@@ -199,14 +208,14 @@ const Backtesting: React.FC = () => {
                   <div className="flex justify-between">
                     <span>Rendement:</span>
                     <span className={`font-medium ${
-                      test.results.totalReturn >= 0 ? 'text-green-600' : 'text-red-600'
+                      safeNumber(test.results.totalReturn) >= 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      {(test.results.totalReturn * 100).toFixed(2)}%
+                      {(safeNumber(test.results.totalReturn) * 100).toFixed(2)}%
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Sharpe:</span>
-                    <span className="font-medium">{test.results.sharpeRatio.toFixed(2)}</span>
+                    <span className="font-medium">{safeToFixed(test.results.sharpeRatio, 2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Trades:</span>

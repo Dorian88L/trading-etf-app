@@ -13,8 +13,7 @@ import logging
 from app.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.models.trading_simulation import TradingSimulation, SimulationTrade, SimulationPerformanceSnapshot, SimulationStatus
-from app.services.real_market_data import get_real_market_data_service
-from app.services.advanced_backtesting_service import AdvancedBacktestingService
+from app.services.trading_simulation_service_v2 import TradingSimulationService
 
 logger = logging.getLogger(__name__)
 

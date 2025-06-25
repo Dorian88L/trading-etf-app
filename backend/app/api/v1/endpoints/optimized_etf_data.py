@@ -14,7 +14,6 @@ from app.core.database import get_db
 from app.api.deps import get_current_active_user
 from app.models.user import User
 from app.services.multi_source_etf_data import get_multi_source_etf_service, MultiSourceETFDataService, ETFDataPoint, DataSource
-from app.services.dynamic_etf_service import get_dynamic_etf_service, DynamicETFService
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -64,8 +63,7 @@ except:
 )
 async def get_optimized_etf_data(
     use_cache: bool = True,
-    min_confidence: float = 0.0,
-    dynamic_service: DynamicETFService = Depends(get_dynamic_etf_service)
+    min_confidence: float = 0.0
 ):
     """
     Récupère les données ETF optimisées avec sources multiples
@@ -91,62 +89,131 @@ async def get_optimized_etf_data(
             except Exception as e:
                 logger.warning(f"Erreur cache Redis: {e}")
         
-        # Récupérer les données depuis les sources dynamiques
-        logger.info("Récupération des données ETF depuis configuration dynamique...")
-        etf_data_list = await dynamic_service.get_all_realtime_data_for_etf_list()
+        # Copier exactement la logique de real-market qui fonctionne
+        logger.info("Récupération des données ETF avec logique real-market...")
+        try:
+            # Utiliser le service multi-source pour des vraies données
+            multi_source_service = MultiSourceETFDataService()
+            
+            # ETFs principaux avec vraies données
+            etf_symbols = ["IWDA.L", "CSPX.L", "VUSA.L", "IEMA.L", "IEUR.L", 
+                          "EUNL.DE", "VWRL.AS", "IWDA.AS"]
+            
+            etf_api_data = []
+            source_stats = {}
+            
+            for symbol in etf_symbols:
+                try:
+                    # Récupérer vraies données temps réel
+                    etf_data = await multi_source_service.get_etf_data(symbol)
+                    
+                    if etf_data and etf_data.current_price > 0:
+                        source_name = etf_data.source.value
+                        if source_name not in source_stats:
+                            source_stats[source_name] = 0
+                        source_stats[source_name] += 1
+                        
+                        etf_api_data.append({
+                            'symbol': etf_data.symbol,
+                            'isin': etf_data.isin,
+                            'name': etf_data.name,
+                            'current_price': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                            'change': float(etf_data.change) if etf_data.change is not None else 0.0,
+                            'change_percent': float(etf_data.change_percent) if etf_data.change_percent is not None else 0.0,
+                            'volume': int(etf_data.volume) if etf_data.volume is not None else 0,
+                            'market_cap': float(etf_data.market_cap) if etf_data.market_cap is not None else 0.0,
+                            'currency': etf_data.currency or 'EUR',
+                            'exchange': etf_data.exchange,
+                            'sector': etf_data.sector,
+                            'last_update': etf_data.last_update.isoformat(),
+                            'source': etf_data.source.value,
+                            'confidence_score': float(etf_data.confidence_score) if etf_data.confidence_score is not None else 0.0,
+                            # Propriétés supplémentaires pour éviter les erreurs frontend
+                            'high': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                            'low': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                            'open': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                            'close': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                            'bid': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                            'ask': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                            # Métadonnées
+                            'is_real_data': etf_data.source != DataSource.HYBRID,
+                            'data_quality': 'excellent' if etf_data.confidence_score >= 0.9 else 'good' if etf_data.confidence_score >= 0.7 else 'fair',
+                            'reliability_icon': '🟢' if etf_data.confidence_score >= 0.9 else '🟡' if etf_data.confidence_score >= 0.7 else '🟠'
+                        })
+                        logger.debug(f"Données récupérées pour {symbol}: {etf_data.current_price} {etf_data.currency}")
+                except Exception as symbol_error:
+                    logger.warning(f"Erreur pour {symbol}: {symbol_error}")
+                    continue
+            
+            # Si aucune donnée temps réel, utiliser les métadonnées comme fallback
+            if not etf_api_data:
+                logger.warning("Aucune donnée temps réel, utilisation des métadonnées")
+                if 'CACHE' not in source_stats:
+                    source_stats['CACHE'] = 0
+                    
+                for symbol in etf_symbols:
+                    if symbol in multi_source_service.european_etfs:
+                        etf_info = multi_source_service.european_etfs[symbol]
+                        source_stats['CACHE'] += 1
+                        etf_api_data.append({
+                            'symbol': symbol,
+                            'isin': etf_info['isin'],
+                            'name': etf_info['name'],
+                            'sector': etf_info['sector'],
+                            'current_price': 0.0,  # 0.0 au lieu de None pour éviter toFixed error
+                            'change': 0.0,
+                            'change_percent': 0.0,
+                            'volume': 0,
+                            'market_cap': 0.0,
+                            'currency': 'EUR',
+                            'exchange': etf_info['exchange'],
+                            'last_update': datetime.now().isoformat(),
+                            'source': 'metadata_only',
+                            'confidence_score': 0.0,
+                            # Propriétés supplémentaires 
+                            'high': 0.0,
+                            'low': 0.0,
+                            'open': 0.0,
+                            'close': 0.0,
+                            'bid': 0.0,
+                            'ask': 0.0,
+                            # Métadonnées
+                            'is_real_data': False,
+                            'data_quality': 'metadata_only',
+                            'reliability_icon': '🔵'
+                        })
+            
+            logger.info(f"Données récupérées pour {len(etf_api_data)} ETFs")
+                    
+        except Exception as e:
+            logger.error(f"Erreur récupération données ETF: {e}")
+            return {
+                "status": "error",
+                "error": "Erreur de récupération des données ETF",
+                "message": "Veuillez réessayer dans quelques minutes",
+                "data": [],
+                "count": 0,
+                "metadata": {"sources_used": {}, "api_limits_reached": True}
+            }
         
         # Filtrer selon le score de confiance
         filtered_etfs = [
-            etf for etf in etf_data_list 
-            if etf.confidence_score >= min_confidence
+            etf for etf in etf_api_data 
+            if etf['confidence_score'] >= min_confidence
         ]
         
-        # Convertir en format API
-        etf_api_data = []
-        source_stats = {}
-        
-        for etf in filtered_etfs:
-            # Statistiques par source
-            source_name = etf.source.value
-            if source_name not in source_stats:
-                source_stats[source_name] = 0
-            source_stats[source_name] += 1
-            
-            etf_item = {
-                'symbol': etf.symbol,
-                'isin': etf.isin,
-                'name': etf.name,
-                'current_price': etf.current_price,
-                'change': etf.change,
-                'change_percent': etf.change_percent,
-                'volume': etf.volume,
-                'market_cap': etf.market_cap,
-                'currency': etf.currency,
-                'exchange': etf.exchange,
-                'sector': etf.sector,
-                'last_update': etf.last_update.isoformat(),
-                'source': etf.source.value,
-                'confidence_score': etf.confidence_score,
-                
-                # Métadonnées utiles pour le frontend
-                'is_real_data': etf.source != DataSource.HYBRID,
-                'data_quality': 'excellent' if etf.confidence_score >= 0.9 else 'good' if etf.confidence_score >= 0.7 else 'fair',
-                'reliability_icon': '🟢' if etf.confidence_score >= 0.9 else '🟡' if etf.confidence_score >= 0.7 else '🟠'
-            }
-            etf_api_data.append(etf_item)
-        
         # Trier par score de confiance et nom
-        etf_api_data.sort(key=lambda x: (-x['confidence_score'], x['name']))
+        filtered_etfs.sort(key=lambda x: (-x['confidence_score'], x['name']))
         
         response_data = {
             'status': 'success',
-            'count': len(etf_api_data),
-            'data': etf_api_data,
+            'count': len(filtered_etfs),
+            'data': filtered_etfs,
             'timestamp': datetime.now().isoformat(),
             'metadata': {
                 'sources_used': source_stats,
-                'avg_confidence': sum(etf.confidence_score for etf in filtered_etfs) / len(filtered_etfs) if filtered_etfs else 0,
-                'real_data_percentage': round((len([etf for etf in filtered_etfs if etf.source != DataSource.HYBRID]) / len(filtered_etfs)) * 100, 1) if filtered_etfs else 0,
+                'avg_confidence': sum(etf['confidence_score'] for etf in filtered_etfs) / len(filtered_etfs) if filtered_etfs else 0,
+                'real_data_percentage': round((len([etf for etf in filtered_etfs if etf['is_real_data']]) / len(filtered_etfs)) * 100, 1) if filtered_etfs else 0,
                 'cache_used': False,
                 'next_update_in': 300  # 5 minutes
             }
@@ -225,19 +292,26 @@ async def get_optimized_single_etf_data(
                 'symbol': etf_data.symbol,
                 'isin': etf_data.isin,
                 'name': etf_data.name,
-                'current_price': etf_data.current_price,
-                'change': etf_data.change,
-                'change_percent': etf_data.change_percent,
-                'volume': etf_data.volume,
-                'market_cap': etf_data.market_cap,
+                'current_price': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                'change': float(etf_data.change) if etf_data.change is not None else 0.0,
+                'change_percent': float(etf_data.change_percent) if etf_data.change_percent is not None else 0.0,
+                'volume': int(etf_data.volume) if etf_data.volume is not None else 0,
+                'market_cap': float(etf_data.market_cap) if etf_data.market_cap is not None else 0.0,
                 'currency': etf_data.currency,
                 'exchange': etf_data.exchange,
                 'sector': etf_data.sector,
                 'last_update': etf_data.last_update.isoformat(),
                 'source': etf_data.source.value,
-                'confidence_score': etf_data.confidence_score,
+                'confidence_score': float(etf_data.confidence_score) if etf_data.confidence_score is not None else 0.0,
                 'is_real_data': etf_data.source != DataSource.HYBRID,
-                'data_quality': 'excellent' if etf_data.confidence_score >= 0.9 else 'good' if etf_data.confidence_score >= 0.7 else 'fair'
+                'data_quality': 'excellent' if etf_data.confidence_score >= 0.9 else 'good' if etf_data.confidence_score >= 0.7 else 'fair',
+                # Propriétés supplémentaires pour éviter les erreurs frontend
+                'high': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                'low': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                'open': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                'close': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                'bid': float(etf_data.current_price) if etf_data.current_price is not None else 0.0,
+                'ask': float(etf_data.current_price) if etf_data.current_price is not None else 0.0
             },
             'timestamp': datetime.now().isoformat()
         }
