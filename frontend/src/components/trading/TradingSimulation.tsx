@@ -444,8 +444,10 @@ const TradingSimulation: React.FC = () => {
                   <div className="space-y-3">
                     {activeSimulations.slice(0, 3).map((sim) => (
                       <div key={sim.id} className="border rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-gray-900">{sim.config.name}</h4>
+                        <div className="flex items-center justify-between mb-2">      
+                            {sim.config?.name && (
+                              <h4 className="font-medium text-gray-900">{sim.config.name}</h4>
+                            )}
                           <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(sim.status)}`}>
                             {getStatusLabel(sim.status)}
                           </span>
@@ -523,10 +525,12 @@ const TradingSimulation: React.FC = () => {
                             <div className="text-xs text-gray-500">{entry.risk_level}</div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className={`font-medium text-sm ${entry.return_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {entry.return_pct >= 0 ? '+' : ''}{entry.return_pct.toFixed(1)}%
-                          </div>
+                        <div className="text-right">            
+                            <div className={`font-medium text-sm ${entry.return_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {typeof entry.return_pct === 'number' && !isNaN(entry.return_pct)
+                                ? `${entry.return_pct >= 0 ? '+' : ''}${entry.return_pct.toFixed(1)}%`
+                                : 'N/A'}
+                            </div>
                           <div className="text-xs text-gray-500">{entry.duration_days}j</div>
                         </div>
                       </div>
