@@ -459,10 +459,13 @@ const TradingSimulation: React.FC = () => {
                             <div className="font-medium">{sim.current_value.toFixed(2)}€</div>
                           </div>
                           <div>
-                            <span className="text-gray-500">Rendement:</span>
-                            <div className={`font-medium ${sim.total_return_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {sim.total_return_pct >= 0 ? '+' : ''}{sim.total_return_pct.toFixed(2)}%
-                            </div>
+                            <span className="text-gray-500">Rendement:</span>                         
+                            {typeof sim.total_return_pct === 'number' && !isNaN(sim.total_return_pct) ? (
+                              <div className={`font-medium ${sim.total_return_pct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {sim.total_return_pct >= 0 ? '+' : ''}
+                                {sim.total_return_pct.toFixed(2)}%
+                              </div>
+                            ) : null}
                           </div>
                           <div>
                             <span className="text-gray-500">Reste:</span>
