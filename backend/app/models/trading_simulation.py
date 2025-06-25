@@ -11,7 +11,7 @@ from app.core.database import Base
 from enum import Enum
 
 
-class SimulationStatus(str, Enum):
+class SimulationStatus(Enum):
     """Statuts possibles d'une simulation"""
     PENDING = "pending"
     RUNNING = "running"
@@ -19,6 +19,9 @@ class SimulationStatus(str, Enum):
     COMPLETED = "completed"
     STOPPED = "stopped"
     ERROR = "error"
+    
+    def __str__(self):
+        return self.value
 
 
 class TradingSimulation(Base):
@@ -43,7 +46,7 @@ class TradingSimulation(Base):
     etf_symbols = Column(JSONB)
     
     # État actuel de la simulation
-    status = Column(SQLEnum(SimulationStatus), default=SimulationStatus.PENDING, index=True)
+    status = Column(SQLEnum(SimulationStatus, values_callable=lambda obj: [e.value for e in obj]), default=SimulationStatus.PENDING, index=True)
     current_value = Column(Float)
     cash = Column(Float)
     total_return_pct = Column(Float)
